@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for pom.xml
+        id: check-pom
+        run: |
+          if [ -f "pom.xml" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No pom.xml found yet - skipping Maven build/test. This step will start running for real once application code with a pom.xml is added."
+          fi
+
+      - name: Set up JDK 17
+        if: steps.check-pom.outputs.found == 'true'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build and run tests
+        if: steps.check-pom.outputs.found == 'true'
+        run: mvn -B verify
+
+      - name: Upload test reports
+        if: steps.check-pom.outputs.found == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: '**/target/surefire-reports/*.txt'
+          if-no-files-found: ignore

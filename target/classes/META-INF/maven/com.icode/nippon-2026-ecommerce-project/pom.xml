@@ -8,10 +8,10 @@
 		<version>4.1.1</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>mn.icode</groupId>
-	<artifactId>spring_boot_ecommerce</artifactId>
+	<groupId>com.icode</groupId>
+	<artifactId>nippon-2026-ecommerce-project</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>spring_boot_ecommerce</name>
+	<name>ecommerce-project</name>
 	<description/>
 	<url/>
 	<licenses>
@@ -27,7 +27,7 @@
 		<url/>
 	</scm>
 	<properties>
-		<java.version>25</java.version>
+		<java.version>21</java.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -100,7 +100,6 @@
             <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
-        
 	</dependencies>
 
 	<build>

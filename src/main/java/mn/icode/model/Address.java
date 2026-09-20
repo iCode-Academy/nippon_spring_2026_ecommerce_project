@@ -1,16 +1,20 @@
 package mn.icode.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "addresses")
+@Table(name = "address")
 public class Address {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    // Хаяг нь заавал эзэмшигчтэй (User) байх шаардлага
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
@@ -28,6 +32,14 @@ public class Address {
 
     @Column(name = "default_address")
     private Boolean defaultAddress = false;
+
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 
     public Address() {}
 
@@ -54,4 +66,6 @@ public class Address {
 
     public Boolean getDefaultAddress() { return defaultAddress; }
     public void setDefaultAddress(Boolean defaultAddress) { this.defaultAddress = defaultAddress; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
 }

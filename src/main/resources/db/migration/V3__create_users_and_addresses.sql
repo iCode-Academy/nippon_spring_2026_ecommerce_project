@@ -7,8 +7,12 @@ CREATE TABLE users (
     phone VARCHAR(30),
     role VARCHAR(20) NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Email-ээр хайлт хийхэд хурдасгах индекс
+CREATE INDEX idx_users_email ON users(email);
 
 CREATE TABLE addresses (
     id BIGSERIAL PRIMARY KEY,
@@ -19,5 +23,9 @@ CREATE TABLE addresses (
     address_line VARCHAR(255) NOT NULL,
     phone VARCHAR(30),
     default_address BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_address_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- user_id-аар хаяг шүүх индекс
+CREATE INDEX idx_address_user_id ON address(user_id);

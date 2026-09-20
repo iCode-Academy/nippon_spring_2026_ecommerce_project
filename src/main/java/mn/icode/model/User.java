@@ -1,6 +1,5 @@
 package mn.icode.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -14,42 +13,35 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "first_name", nullable = false)
+    private String firstName;
+
+    @Column(name = "last_name", nullable = false)
+    private String lastName;
+
     @Column(nullable = false, unique = true)
     private String email;
 
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    @Column(name = "password_hash", nullable = false)
-    private String passwordHash;
+    @Column(nullable = false)
+    private String password;
+
+    private String phone;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Role role = Role.BUYER;
+    private Role role;
+
+    private boolean enabled = true;
+
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Address> addresses = new ArrayList<>();
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
     @PrePersist
-    public void prePersist() {
-        if (this.email != null) {
-            this.email = this.email.trim().toLowerCase();
-        }
-        LocalDateTime now = LocalDateTime.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        if (this.email != null) {
-            this.email = this.email.trim().toLowerCase();
-        }
-        this.updatedAt = LocalDateTime.now();
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
     }
 
     public User() {}
@@ -57,30 +49,30 @@ public class User {
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { 
-        this.email = (email != null) ? email.trim().toLowerCase() : null; 
-    }
+    public String getFirstName() { return firstName; }
+    public void setFirstName(String firstName) { this.firstName = firstName; }
 
-    public String getPasswordHash() { return passwordHash; }
-    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+    public String getLastName() { return lastName; }
+    public void setLastName(String lastName) { this.lastName = lastName; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
 
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
 
-    public List<Address> getAddresses() { return addresses; }
-    public void setAddresses(List<Address> addresses) { this.addresses = addresses; }
-
-    public void addAddress(Address address) {
-        addresses.add(address);
-        address.setUser(this);
-    }
-
-    public void removeAddress(Address address) {
-        addresses.remove(address);
-        address.setUser(null);
-    }
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public List<Address> getAddresses() { return addresses; }
+    public void setAddresses(List<Address> addresses) { this.addresses = addresses; }
 }

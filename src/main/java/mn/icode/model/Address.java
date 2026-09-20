@@ -1,8 +1,6 @@
 package mn.icode.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "addresses")
@@ -12,40 +10,24 @@ public class Address {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnore
     private User user;
 
-    @Column(nullable = false)
-    private String street;
+    private String title;
 
     @Column(nullable = false)
     private String city;
 
-    @Column(name = "postal_code")
-    private String postalCode;
+    private String district;
 
-    @Column(nullable = false)
-    private String country;
+    @Column(name = "address_line", nullable = false)
+    private String addressLine;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private String phone;
 
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    public void prePersist() {
-        LocalDateTime now = LocalDateTime.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
+    @Column(name = "default_address")
+    private Boolean defaultAddress = false;
 
     public Address() {}
 
@@ -55,18 +37,21 @@ public class Address {
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
 
-    public String getStreet() { return street; }
-    public void setStreet(String street) { this.street = street; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
 
     public String getCity() { return city; }
     public void setCity(String city) { this.city = city; }
 
-    public String getPostalCode() { return postalCode; }
-    public void setPostalCode(String postalCode) { this.postalCode = postalCode; }
+    public String getDistrict() { return district; }
+    public void setDistrict(String district) { this.district = district; }
 
-    public String getCountry() { return country; }
-    public void setCountry(String country) { this.country = country; }
+    public String getAddressLine() { return addressLine; }
+    public void setAddressLine(String addressLine) { this.addressLine = addressLine; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+
+    public Boolean getDefaultAddress() { return defaultAddress; }
+    public void setDefaultAddress(Boolean defaultAddress) { this.defaultAddress = defaultAddress; }
 }

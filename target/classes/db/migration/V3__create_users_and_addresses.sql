@@ -1,0 +1,31 @@
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    phone VARCHAR(30),
+    role VARCHAR(20) NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Email-ээр хайлт хийхэд хурдасгах индекс
+CREATE INDEX idx_users_email ON users(email);
+
+CREATE TABLE addresses (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    title VARCHAR(100),
+    city VARCHAR(100) NOT NULL,
+    district VARCHAR(100),
+    address_line VARCHAR(255) NOT NULL,
+    phone VARCHAR(30),
+    default_address BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_address_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- user_id-аар хаяг шүүх индекс
+CREATE INDEX idx_address_user_id ON address(user_id);

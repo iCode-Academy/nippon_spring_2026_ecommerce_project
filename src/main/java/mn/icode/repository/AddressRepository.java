@@ -1,7 +1,8 @@
 package mn.icode.repository;
 
-import mn.icode.model.Address;
 import org.springframework.data.jpa.repository.JpaRepository;
+
+import mn.icode.entity.Address;
 
 import java.util.List;
 import java.util.Optional;

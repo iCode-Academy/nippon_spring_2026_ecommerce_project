@@ -1,7 +1,8 @@
 package mn.icode.repository;
 
+import mn.icode.entity.User;
 import mn.icode.model.Role;
-import mn.icode.model.User;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

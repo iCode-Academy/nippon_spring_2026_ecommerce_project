@@ -1,3 +1,5 @@
+CREATE database commerce;
+
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
@@ -14,7 +16,7 @@ CREATE TABLE users (
 -- Email-ээр хайлт хийхэд хурдасгах индекс
 CREATE INDEX idx_users_email ON users(email);
 
-CREATE TABLE addresses (
+CREATE TABLE address (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     title VARCHAR(100),

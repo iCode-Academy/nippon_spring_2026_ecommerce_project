@@ -1,7 +1,9 @@
-package mn.icode.model;
+package mn.icode.entity;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import mn.icode.model.Role;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;

@@ -1,7 +1,8 @@
-package mn.icode.model;
+package mn.icode.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 
 @Entity

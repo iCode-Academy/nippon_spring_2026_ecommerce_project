@@ -1,0 +1,1 @@
+# nippon_spring_2026_ecommerce_project

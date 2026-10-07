@@ -1,0 +1,24 @@
+# CODEOWNERS
+#
+# Each line is a file pattern followed by one or more owners.
+# These owners are automatically requested as reviewers when a PR
+# touches matching files. Update the usernames/paths below to match
+# your actual team and folder structure.
+#
+# Order matters: the LAST matching pattern in the file wins.
+
+# Default owners for everything in the repo, unless overridden below
+*                           @Myangaa97 @Norovbanzad
+
+# Governance / workflow files (this ticket, CAP-01)
+/.github/                  @Myangaa97 @Norovbanzad
+/CONTRIBUTING.md           @Myangaa97 @Norovbanzad
+
+# Example per-module ownership — replace with real module owners
+# /src/main/java/com/nippon/product/   @<product-module-owner>
+# /src/main/java/com/nippon/order/     @<order-module-owner>
+# /src/main/java/com/nippon/auth/      @<auth-module-owner>
+
+# Build / CI configuration
+/pom.xml                   @Myangaa97
+/.github/workflows/        @Myangaa97

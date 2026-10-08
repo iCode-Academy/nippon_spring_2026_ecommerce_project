@@ -5,6 +5,7 @@ create table orders (
         check (status in ('PENDING','CONFIRMED','SHIPPED','DELIVERED','CANCELLED')),
     subtotal          numeric(12,2) not null check (subtotal >= 0),
     total             numeric(12,2) not null check (total >= 0),
+    
     ship_title        varchar(255),
     ship_city         varchar(255)  not null,
     ship_district     varchar(255)  not null,
@@ -17,6 +18,7 @@ create table orders (
 CREATE TABLE order_items (
     id            bigserial primary key,
     order_id      bigint        not null references orders(id) on delete cascade,
+    
     product_id    bigint        not null,
     product_name  varchar(255)  not null,
     unit_price    numeric(12,2) not null check (unit_price >= 0),

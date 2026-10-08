@@ -8,7 +8,6 @@
 # Order matters: the LAST matching pattern in the file wins.
 
 # Default owners for everything in the repo, unless overridden below
-*                           @Myangaa97 @Norovbanzad
 
 # Governance / workflow files (this ticket, CAP-01)
 /.github/                  @Myangaa97 @Norovbanzad

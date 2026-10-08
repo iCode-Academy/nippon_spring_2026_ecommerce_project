@@ -10,7 +10,7 @@ CREATE TABLE cart (
 
 CREATE INDEX idx_cart_user_id ON cart (user_id);
 
-CREATE TABLE cart_items (
+CREATE TABLE cart_item (
     id	BIGSERIAL PRIMARY KEY,
     cart_id	BIGINT NOT NULL,
     product_id	BIGINT NOT NULL,

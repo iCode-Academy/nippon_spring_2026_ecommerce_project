@@ -1,0 +1,7 @@
+CAP-08 Implementation Summary
+
+Key files implemented: UserService.java, UserRepository.java, OrderRepository.java, CartRepository.java, and entity classes (User, Order, Cart, Review, ReviewStatus). Changes include user registration with automatic CUSTOMER role assignment, BCrypt password encoding, order/cart persistence with JPA repositories, and review creation with rating validation (1-5).
+
+Tests: All 11 tests pass (5 UserServiceTest + 6 ReviewTest).
+
+Acceptance criteria met: User registration always creates CUSTOMER role regardless of input, passwords encoded with BCrypt, reviews validate rating bounds (1-5), and order/cart/item entities persist correctly with proper repository operations.

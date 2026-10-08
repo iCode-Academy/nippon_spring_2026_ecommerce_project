@@ -1,4 +1,4 @@
---CREATE database commerce;
+--CREATE database ecommerce;
 
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,

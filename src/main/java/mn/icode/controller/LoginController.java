@@ -1,15 +1,16 @@
 package mn.icode.controller;
 
-import mn.icode.entity.User;
-import mn.icode.service.UserService;
-import mn.icode.service.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import mn.icode.service.UserDetailsServiceImpl;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -18,8 +19,8 @@ public class LoginController {
     @Autowired
     private AuthenticationManager authenticationManager;
 
-    @Autowired
-    private UserService userService;
+    // @Autowired
+    // private UserService userService;
 
     @Autowired
     private UserDetailsServiceImpl userDetailsService;
@@ -41,10 +42,10 @@ public class LoginController {
         }
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<User> register(@RequestBody User user) {
-        return ResponseEntity.ok(userService.registerUser(user));
-    }
+    // @PostMapping("/register")
+    // public ResponseEntity<User> register(@RequestBody User user) {
+    //     return ResponseEntity.ok(userService.registerUser(user));
+    // }
 
     @PostMapping("/logout")
     public ResponseEntity<String> logout() {

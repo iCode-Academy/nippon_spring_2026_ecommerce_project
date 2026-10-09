@@ -19,9 +19,6 @@ public class LoginController {
     @Autowired
     private AuthenticationManager authenticationManager;
 
-    // @Autowired
-    // private UserService userService;
-
     @Autowired
     private UserDetailsServiceImpl userDetailsService;
 
@@ -41,11 +38,6 @@ public class LoginController {
             return ResponseEntity.badRequest().body("Invalid email or password");
         }
     }
-
-    // @PostMapping("/register")
-    // public ResponseEntity<User> register(@RequestBody User user) {
-    //     return ResponseEntity.ok(userService.registerUser(user));
-    // }
 
     @PostMapping("/logout")
     public ResponseEntity<String> logout() {

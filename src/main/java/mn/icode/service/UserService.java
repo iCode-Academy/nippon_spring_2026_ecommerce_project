@@ -1,13 +1,15 @@
 package mn.icode.service;
 
-import mn.icode.entity.User;
-import mn.icode.model.Role;
-import mn.icode.repository.UserRepository;
+import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder; // Энийг ашиглана
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
+import mn.icode.entity.User;
+import mn.icode.exception.ConflictException; // Энийг ашиглана
+import mn.icode.model.Role;
+import mn.icode.repository.UserRepository;
 
 @Service
 public class UserService {
@@ -22,6 +24,10 @@ public class UserService {
     }
 
     public User registerUser(User user) {
+
+        if(userRepository.existsByEmail(user.getEmail())) {
+            throw new ConflictException("Email is already registered");
+        }
         user.setRole(Role.CUSTOMER);
         String encodedPassword = passwordEncoder.encode(user.getPassword());
         user.setPassword(encodedPassword);

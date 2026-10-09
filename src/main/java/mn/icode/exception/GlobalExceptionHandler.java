@@ -1,6 +1,7 @@
 package mn.icode.exception;
 
 import java.util.LinkedHashMap;
+
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -8,6 +9,8 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.security.access.AccessDeniedException;
 
 @RestControllerAdvice 
 public class GlobalExceptionHandler {
@@ -48,4 +51,42 @@ public class GlobalExceptionHandler {
 
             return problem;
         } 
+
+        @ExceptionHandler(Exception.class)
+        public ProblemDetail handleUnexpected(Exception exception) {
+            ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+            problem.setTitle("Internal server error");
+            problem.setDetail("An unexpected error occurred.");
+
+            return problem;
+        }
+        
+        @ExceptionHandler(NoResourceFoundException.class)
+        public ProblemDetail handleNoResourceFound(
+                NoResourceFoundException exception) {
+
+            ProblemDetail problem =
+                    ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+
+            problem.setTitle("Resource not found");
+            problem.setDetail("The requested resource was not found.");
+
+            return problem;
+        }
+        
+        @ExceptionHandler(AccessDeniedException.class)
+        public ProblemDetail handleAccessDenied(
+                AccessDeniedException exception) {
+
+            ProblemDetail problem =
+                    ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
+
+            problem.setTitle("Forbidden");
+            problem.setDetail(
+                    "You do not have permission to access this resource."
+            );
+
+            return problem;
+        }
+        
 }

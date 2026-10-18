@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/layout :: head('Create account')}"></head>
+
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+
+<main id="main" class="container narrow">
+    <div th:replace="~{fragments/layout :: flash}"></div>
+
+    <h1>Create an account</h1>
+
+    <form th:action="@{/register}" th:object="${registration}" method="post"
+          class="card form-card" novalidate>
+        <div th:if="${#fields.hasGlobalErrors()}" class="flash flash-error" role="alert">
+            <p th:each="error : ${#fields.globalErrors()}"
+               th:text="${error}">Global error</p>
+        </div>
+
+        <div class="field">
+            <label for="firstName">First name</label>
+            <input type="text" id="firstName" th:field="*{firstName}"
+                   autocomplete="given-name" required aria-required="true"
+                   th:classappend="${#fields.hasErrors('firstName')} ? 'input-invalid'"
+                   th:attr="aria-invalid=${#fields.hasErrors('firstName')}">
+            <p class="field-error" th:if="${#fields.hasErrors('firstName')}"
+               th:errors="*{firstName}">First name error</p>
+        </div>
+
+        <div class="field">
+            <label for="lastName">Last name</label>
+            <input type="text" id="lastName" th:field="*{lastName}"
+                   autocomplete="family-name" required aria-required="true"
+                   th:classappend="${#fields.hasErrors('lastName')} ? 'input-invalid'"
+                   th:attr="aria-invalid=${#fields.hasErrors('lastName')}">
+            <p class="field-error" th:if="${#fields.hasErrors('lastName')}"
+               th:errors="*{lastName}">Last name error</p>
+        </div>
+
+        <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" th:field="*{email}"
+                   autocomplete="email" required aria-required="true"
+                   th:classappend="${#fields.hasErrors('email')} ? 'input-invalid'"
+                   th:attr="aria-invalid=${#fields.hasErrors('email')}">
+            <p class="field-error" th:if="${#fields.hasErrors('email')}"
+               th:errors="*{email}">Email error</p>
+        </div>
+
+        <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" th:field="*{password}"
+                   autocomplete="new-password" required aria-required="true"
+                   th:classappend="${#fields.hasErrors('password')} ? 'input-invalid'"
+                   th:attr="aria-invalid=${#fields.hasErrors('password')}">
+            <p class="field-error" th:if="${#fields.hasErrors('password')}"
+               th:errors="*{password}">Password error</p>
+        </div>
+
+        <div class="field">
+            <label for="phone">Phone <span class="optional">(optional)</span></label>
+            <input type="tel" id="phone" th:field="*{phone}" autocomplete="tel">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Create account</button>
+    </form>
+
+    <p class="form-footer">
+        Already have an account?
+        <a th:href="@{/login}">Sign in</a>.
+    </p>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+
+</html>

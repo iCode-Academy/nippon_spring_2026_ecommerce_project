@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/layout :: head('Shop')}"></head>
+
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+
+<main id="main" class="container">
+    <div th:replace="~{fragments/layout :: flash}"></div>
+
+    <h1>Shop</h1>
+
+    <div th:if="${#lists.isEmpty(products)}" class="empty-state card">
+        <h2>No products yet</h2>
+        <p>New arrivals are on the way. Please check back soon.</p>
+    </div>
+
+    <section th:unless="${#lists.isEmpty(products)}" class="card-grid"
+             aria-label="Products">
+        <article class="card product-card" th:each="product : ${products}">
+            <h2 th:text="${product.name}">Product name</h2>
+            <p class="muted" th:text="${product.category?.name}">Category</p>
+            <p class="price"
+               th:text="'$' + ${product.price}">
+                $0.00</p>
+            <p th:if="${product.stockQuantity == 0}" class="badge badge-warn">
+                Out of stock</p>
+            <p th:if="${product.stockQuantity > 0}" class="muted"
+               th:text="'In stock: ' + ${product.stockQuantity}">In stock: 0</p>
+        </article>
+    </section>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+
+</html>

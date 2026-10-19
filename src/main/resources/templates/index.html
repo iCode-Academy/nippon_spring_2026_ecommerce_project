@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/layout :: head('Welcome')}"></head>
+
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+
+<main id="main" class="container">
+    <div th:replace="~{fragments/layout :: flash}"></div>
+
+    <section class="hero">
+        <h1>Welcome to Nippon Shop</h1>
+        <p class="lead">Quality Japanese goods, delivered to your door.</p>
+        <div class="hero-actions" th:if="${!nav.authenticated}">
+            <a class="btn btn-primary" th:href="@{/register}">Create an account</a>
+            <a class="btn btn-secondary" th:href="@{/login}">Sign in</a>
+        </div>
+        <div class="hero-actions" th:if="${nav.authenticated}">
+            <a class="btn btn-primary" th:href="@{/home}">Browse the catalog</a>
+            <a class="btn btn-secondary" th:href="@{/orders}">View my orders</a>
+        </div>
+    </section>
+
+    <section class="card-grid" aria-label="Highlights">
+        <article class="card">
+            <h2>Wide selection</h2>
+            <p>From stationery to kitchenware, find everyday Japanese favourites.</p>
+        </article>
+        <article class="card">
+            <h2>Fast delivery</h2>
+            <p>Orders are prepared quickly and tracked from checkout to doorstep.</p>
+        </article>
+        <article class="card">
+            <h2>Secure accounts</h2>
+            <p>Passwords are stored safely and every account has role-based access.</p>
+        </article>
+    </section>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+
+</html>

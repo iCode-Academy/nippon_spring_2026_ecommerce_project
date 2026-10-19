@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/layout :: head('Admin dashboard')}"></head>
+
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+
+<main id="main" class="container">
+    <div th:replace="~{fragments/layout :: flash}"></div>
+
+    <h1>Admin dashboard</h1>
+
+    <section class="stat-grid" aria-label="Statistics">
+        <div class="card stat">
+            <p class="stat-value" th:text="${userCount}">0</p>
+            <p class="stat-label">Users</p>
+        </div>
+        <div class="card stat">
+            <p class="stat-value" th:text="${orderCount}">0</p>
+            <p class="stat-label">Orders</p>
+        </div>
+        <div class="card stat">
+            <p class="stat-value" th:text="${productCount}">0</p>
+            <p class="stat-label">Products</p>
+        </div>
+    </section>
+
+    <h2>Registered users</h2>
+
+    <div th:if="${#lists.isEmpty(users)}" class="empty-state card">
+        <h3>No users yet</h3>
+        <p>Registered customers will appear in this table.</p>
+    </div>
+
+    <div th:unless="${#lists.isEmpty(users)}" class="table-wrap">
+        <table>
+            <caption class="visually-hidden">All registered users</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Enabled</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="user : ${users}">
+                    <td th:text="${user.firstName + ' ' + user.lastName}">Name</td>
+                    <td th:text="${user.email}">email@example.com</td>
+                    <td>
+                        <span class="badge"
+                              th:classappend="${user.role.name() == 'ADMIN'} ? 'badge-accent'"
+                              th:text="${user.role}">CUSTOMER</span>
+                    </td>
+                    <td th:text="${user.enabled ? 'Yes' : 'No'}">Yes</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+
+</html>

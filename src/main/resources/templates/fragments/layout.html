@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title} + ' · Nippon Shop'">Nippon Shop</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+
+<body>
+
+<header th:fragment="nav" class="site-header">
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <div class="container header-inner">
+        <a class="brand" th:href="@{/}">Nippon Shop</a>
+        <nav class="site-nav" aria-label="Main navigation">
+            <ul class="nav-links">
+                <li><a th:href="@{/}">Home</a></li>
+                <li th:if="${nav.authenticated}">
+                    <a th:href="@{/home}">Shop</a>
+                </li>
+                <li th:if="${nav.authenticated}">
+                    <a th:href="@{/orders}">My orders</a>
+                </li>
+                <li th:if="${nav.admin}">
+                    <a th:href="@{/admin}">Admin</a>
+                </li>
+            </ul>
+            <ul class="nav-auth">
+                <li th:if="${!nav.authenticated}">
+                    <a th:href="@{/login}">Sign in</a>
+                </li>
+                <li th:if="${!nav.authenticated}">
+                    <a class="btn btn-primary" th:href="@{/register}">Register</a>
+                </li>
+                <li th:if="${nav.authenticated}" class="nav-user">
+                    <span th:text="${nav.name}">user@example.com</span>
+                </li>
+                <li th:if="${nav.authenticated}">
+                    <form th:action="@{/logout}" method="post" class="inline-form">
+                        <button type="submit" class="btn btn-ghost">Sign out</button>
+                    </form>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</header>
+
+<div th:fragment="flash" class="flash-region" aria-live="polite">
+    <div th:if="${flashSuccess}" class="flash flash-success" role="status"
+         th:text="${flashSuccess}">Success message</div>
+    <div th:if="${flashError}" class="flash flash-error" role="alert"
+         th:text="${flashError}">Error message</div>
+</div>
+
+<footer th:fragment="footer" class="site-footer">
+    <div class="container">
+        <p>&copy; 2026 Nippon Shop</p>
+    </div>
+</footer>
+
+</body>
+
+</html>

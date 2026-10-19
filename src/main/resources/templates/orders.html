@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/layout :: head('My orders')}"></head>
+
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+
+<main id="main" class="container">
+    <div th:replace="~{fragments/layout :: flash}"></div>
+
+    <h1>My orders</h1>
+
+    <div th:if="${#lists.isEmpty(orders)}" class="empty-state card">
+        <h2>No orders yet</h2>
+        <p>When you place an order it will show up here.</p>
+        <a class="btn btn-primary" th:href="@{/home}">Start shopping</a>
+    </div>
+
+    <div th:unless="${#lists.isEmpty(orders)}" class="table-wrap">
+        <table>
+            <caption class="visually-hidden">Orders for the signed in customer</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Order</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Items</th>
+                    <th scope="col">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="order : ${orders}">
+                    <td th:text="'#' + ${order.id}">#1</td>
+                    <td th:text="${order.createdAt}">2026-01-01</td>
+                    <td>
+                        <span class="badge"
+                              th:classappend="${order.status.name() == 'CANCELLED'} ? 'badge-warn' : 'badge-ok'"
+                              th:text="${order.status}">PENDING</span>
+                    </td>
+                    <td th:text="${#lists.size(order.items)}">0</td>
+                    <td th:text="'$' + ${order.total}">$0.00</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+
+</html>

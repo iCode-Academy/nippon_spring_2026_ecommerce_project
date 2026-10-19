@@ -56,6 +56,7 @@ class UiAssetsTest {
                 "/templates/home.html",
                 "/templates/orders.html",
                 "/templates/admin/dashboard.html",
+                "/templates/admin/categories.html",
                 "/templates/error/403.html",
                 "/templates/error/404.html",
                 "/templates/error/500.html"
@@ -81,5 +82,37 @@ class UiAssetsTest {
                     .as("error page %s has content", page)
                     .isNotEmpty();
         }
+    }
+
+    @Test
+    void layoutExposesCsrfMetaTagsForJavaScriptClients() throws Exception {
+        String layout = resource("/templates/fragments/layout.html");
+
+        assertThat(layout)
+                .contains("name=\"_csrf\"")
+                .contains("name=\"_csrf_header\"")
+                .doesNotContain("js/app.js");
+    }
+
+    @Test
+    void adminCategoriesJsReadsCsrfMetaTagsAndCallsTheApi() throws Exception {
+        String js = resource("/static/js/admin-categories.js");
+
+        assertThat(js)
+                .contains("meta[name=\"_csrf\"]")
+                .contains("meta[name=\"_csrf_header\"]")
+                .contains("[csrfHeader]: csrfToken")
+                .contains("fetch(API_URL)");
+    }
+
+    @Test
+    void categoriesPageLoadsTheAdminCategoriesScript() throws Exception {
+        String page = resource("/templates/admin/categories.html");
+
+        assertThat(page)
+                .contains("js/admin-categories.js")
+                .contains("id=\"categoryForm\"")
+                .contains("id=\"categoriesTableBody\"")
+                .contains("id=\"emptyTable\"");
     }
 }

@@ -9,7 +9,10 @@
 <main id="main" class="container">
     <div th:replace="~{fragments/layout :: flash}"></div>
 
-    <h1>Admin dashboard</h1>
+    <div class="page-heading">
+        <h1>Admin dashboard</h1>
+        <a class="btn btn-secondary" th:href="@{/admin/categories}">Manage categories</a>
+    </div>
 
     <section class="stat-grid" aria-label="Statistics">
         <div class="card stat">

@@ -38,8 +38,12 @@ public class GlobalExceptionHandler {
         }
 
         @ExceptionHandler(ResourceNotFoundException.class)
-        @ResponseBody
-        public ProblemDetail handleNotFound(ResourceNotFoundException exception) {
+        public Object handleNotFound(ResourceNotFoundException exception,
+                HttpServletRequest request) {
+            if (prefersHtml(request)) {
+                return errorView("error/404", HttpStatus.NOT_FOUND, request);
+            }
+
             ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
 
             problem.setTitle("Resource not found");

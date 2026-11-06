@@ -14,9 +14,32 @@ The server-rendered UI uses a shared Thymeleaf layout (`templates/fragments/layo
 | `/home` | GET | Authenticated | `home` | Product cards; empty state when no active products |
 | `/orders` | GET | Authenticated | `orders` | Current customer's orders table; empty state when none |
 | `/admin` | GET | `ADMIN` only | `admin/dashboard` | Stats cards and users table; empty state when no users |
+| `/admin/categories` | GET | `ADMIN` only | `admin/categories` | JavaScript-driven category management page; renders the empty state when no categories exist |
 | `/logout` | POST | Authenticated | — | Form in the navigation; redirects to `/login?logout` |
 
-Navigation differs by audience: anonymous users see *Sign in* / *Register*; authenticated customers additionally see *Shop*, *My orders*, their email, and *Sign out*; admins additionally see *Admin*. Non-`/api` POSTs require a CSRF token (Thymeleaf adds it automatically); `/api/**` remains CSRF-exempt.
+Navigation differs by audience: anonymous users see *Sign in* / *Register*; authenticated customers additionally see *Shop*, *My orders*, their email, and *Sign out*; admins additionally see *Admin* and *Categories*. Non-`/api` POSTs require a CSRF token (Thymeleaf adds it automatically to `th:action` forms such as login, register, and sign out); `/api/auth/**` is CSRF-exempt; `/api/admin/**` requires both the `ADMIN` role and a valid `X-CSRF-TOKEN` header.
+
+### Admin category API
+
+The category page is a JavaScript client (`static/js/admin-categories.js`). It loads and mutates categories through the JSON API below, reading the CSRF token from the layout's `<meta name="_csrf">` and `<meta name="_csrf_header">` tags and sending it as the `X-CSRF-TOKEN` header on every POST/PUT/DELETE.
+
+| Route | Method | Success | Errors |
+|---|---|---|---|
+| `/api/admin/categories` | GET | `200`, JSON array `{"id", "name"}` sorted by name | `302` → `/login` (anonymous), `403` (`CUSTOMER`) |
+| `/api/admin/categories` | POST | `201`, created `{"id", "name"}` | `400` invalid name, `409` duplicate name, `403` missing CSRF token or wrong role |
+| `/api/admin/categories/{id}` | PUT | `200`, updated `{"id", "name"}` | `400` invalid name, `404` unknown id, `409` duplicate name |
+| `/api/admin/categories/{id}` | DELETE | `204` no content | `404` unknown id, `409` category still referenced by products |
+
+Errors use the shared `ProblemDetail` format described below. The page surfaces them as toast messages ("Category name already exists", "Category could not be deleted", …).
+
+### Category management rules
+
+- Category names are required, trimmed, and limited to 150 characters; the client validates empty input and the API answers invalid payloads with `400` plus field errors.
+- Duplicate names are rejected case-insensitively with `409` ("A category named … already exists") instead of a raw database failure.
+- The page and the API require the `ADMIN` role: anonymous users are redirected to `/login`, and `CUSTOMER` users receive `403 Forbidden` on both `/admin/categories` and `/api/admin/categories/**`.
+- Mutations must carry the CSRF token: the JavaScript reads it from the layout's meta tags and sends it in the `X-CSRF-TOKEN` header; a request without a valid token is rejected with `403 Forbidden` before it reaches the controller. Login, register, and sign out keep Thymeleaf's automatic token injection.
+- Deleting is safe: a category referenced by products is never removed — the API answers `409` with how many products must be reassigned first and the page shows an error toast. Unreferenced categories are deleted (`204`) and the list refreshes.
+- Categories are listed alphabetically; the JavaScript client shows an empty state when no categories exist and reloads the table after every mutation.
 
 Error pages for 403, 404, and 500 live in `templates/error/` and use the same layout. Representative mobile and desktop screenshots are attached to the pull request for UI changes (see CONTRIBUTING.md).
 

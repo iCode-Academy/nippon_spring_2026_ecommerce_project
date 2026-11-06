@@ -27,7 +27,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/api/**")
+                .ignoringRequestMatchers("/api/auth/**")
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/",
@@ -43,6 +43,7 @@ public class SecurityConfig {
                                  "/api/auth/logout",
                                  "/api/auth/status").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form

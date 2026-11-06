@@ -475,3 +475,15 @@ input.input-invalid {
         padding: 0.5rem 0.75rem;
     }
 }
+
+.product-image-preview {
+    display: block;
+    width: 160px;
+    height: 160px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    background-color: #f5f5f5;
+}
+

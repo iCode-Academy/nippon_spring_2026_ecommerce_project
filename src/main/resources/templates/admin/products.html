@@ -1,0 +1,150 @@
+
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/layout :: head('Manage Products')}"></head>
+
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+
+<main id="main" class="container">
+    <div th:replace="~{fragments/layout :: flash}"></div>
+
+    <h1>Manage Products</h1>
+
+    <section class="card form-card">
+        <h2 id="form-title">Add Product</h2>
+
+        <form id="product-form">
+            <input type="hidden" id="product-id">
+
+            <div class="field">
+                <label for="product-name">Product Name</label>
+                <input type="text" id="product-name"
+                       maxlength="200" required>
+            </div>
+
+            <div class="field">
+                <label for="product-description">Description</label>
+                <textarea id="product-description"
+                          maxlength="5000"></textarea>
+            </div>
+
+            <div class="field">
+                <label for="product-price">Price</label>
+                <input type="number" id="product-price"
+                       min="0.01" step="0.01" required>
+            </div>
+
+            <div class="field">
+                <label for="product-stock">Stock Quantity</label>
+                <input type="number" id="product-stock"
+                       min="0" step="1" required>
+            </div>
+
+            <div class="field">
+                <label for="product-category">Category</label>
+                <select id="product-category" required>
+                    <option value="">Select category</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>
+                    <input type="checkbox"
+                           id="product-active" checked>
+                    Active
+                </label>
+            </div>
+
+            <div id="form-error" role="alert"
+                 class="flash flash-error" hidden></div>
+
+            <button type="submit" class="btn btn-primary">
+                Save Product
+            </button>
+
+            <button type="button" id="cancel-edit"
+                    class="btn" hidden>
+                Cancel Edit
+            </button>
+        </form>
+    </section>
+
+<section id="image-management" class="card form-card" hidden>
+    <h2>Manage Product Images</h2>
+
+    <p>
+        Product:
+        <strong id="image-product-name"></strong>
+    </p>
+
+    <form id="image-form">
+        <div class="field">
+            <label for="image-url">Image URL</label>
+            <input
+                type="url"
+                id="image-url"
+                placeholder="https://example.com/image.jpg"
+                maxlength="500"
+                pattern="https://.*"
+                required
+            >
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            Add Image
+        </button>
+    </form>
+
+    <div id="image-error"
+         class="flash flash-error"
+         role="alert"
+         hidden></div>
+
+    <h3>Product Images</h3>
+
+    <p id="images-empty" hidden>
+        No images added yet.
+    </p>
+
+    <div id="images-list"></div>
+
+    <button type="button"
+            id="close-image-management"
+            class="btn">
+        Close Image Management
+    </button>
+</section>
+
+    <section>
+        <h2>Products</h2>
+
+        <p id="products-empty" hidden>
+            No products found.
+        </p>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody id="products-table"></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<script th:src="@{/js/admin-products.js}" defer></script>
+</body>
+</html>

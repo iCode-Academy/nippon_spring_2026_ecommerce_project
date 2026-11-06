@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 
@@ -71,51 +70,51 @@
         </form>
     </section>
 
-<section id="image-management" class="card form-card" hidden>
-    <h2>Manage Product Images</h2>
+    <section id="image-management" class="card form-card" hidden>
+        <h2>Manage Product Images</h2>
 
-    <p>
-        Product:
-        <strong id="image-product-name"></strong>
-    </p>
+        <p>
+            Product:
+            <strong id="image-product-name"></strong>
+        </p>
 
-    <form id="image-form">
-        <div class="field">
-            <label for="image-url">Image URL</label>
-            <input
-                type="url"
-                id="image-url"
-                placeholder="https://example.com/image.jpg"
-                maxlength="500"
-                pattern="https://.*"
-                required
-            >
-        </div>
+        <form id="image-form">
+            <div class="field">
+                <label for="image-url">Image URL</label>
+                <input
+                    type="url"
+                    id="image-url"
+                    placeholder="https://example.com/image.jpg"
+                    maxlength="500"
+                    pattern="https://.*"
+                    required
+                >
+            </div>
 
-        <button type="submit" class="btn btn-primary">
-            Add Image
+            <button type="submit" class="btn btn-primary">
+                Add Image
+            </button>
+        </form>
+
+        <div id="image-error"
+             class="flash flash-error"
+             role="alert"
+             hidden></div>
+
+        <h3>Product Images</h3>
+
+        <p id="images-empty" hidden>
+            No images added yet.
+        </p>
+
+        <div id="images-list"></div>
+
+        <button type="button"
+                id="close-image-management"
+                class="btn">
+            Close Image Management
         </button>
-    </form>
-
-    <div id="image-error"
-         class="flash flash-error"
-         role="alert"
-         hidden></div>
-
-    <h3>Product Images</h3>
-
-    <p id="images-empty" hidden>
-        No images added yet.
-    </p>
-
-    <div id="images-list"></div>
-
-    <button type="button"
-            id="close-image-management"
-            class="btn">
-        Close Image Management
-    </button>
-</section>
+    </section>
 
     <section>
         <h2>Products</h2>
@@ -133,6 +132,7 @@
                         <th>Price</th>
                         <th>Stock</th>
                         <th>Status</th>
+                        <th>Updated At</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -145,6 +145,7 @@
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 
-<script th:src="@{/js/admin-products.js}" defer></script>
+<script th:src="@{/js/admin-products.js}" defer>
+</script>
 </body>
 </html>

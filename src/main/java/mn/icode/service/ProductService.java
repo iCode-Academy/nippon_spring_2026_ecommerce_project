@@ -58,10 +58,22 @@ public class ProductService {
     }
 
     @Transactional 
-    public void delete(Long id) {
+    public void toggleActiveStatus(Long id) {
         Product product = findById(id);
-        product.setActive(false);
-        productRepository.delete(product);
+        product.setActive(!product.isActive());
+        productRepository.save(product);
+    }
+
+    @Transactional
+    public void adjustStock(Long id, int quantity) {
+        Product product = findById(id);
+
+        int newStock = product.getStockQuantity() + quantity;
+        if (newStock < 0) {
+            throw new IllegalArgumentException("Stock cannot go below zero. Current stock: " + product.getStockQuantity());
+        }
+        product.setStockQuantity(newStock);
+        productRepository.save(product);
     }
 
     private Category findCategory(Long categoryId) {

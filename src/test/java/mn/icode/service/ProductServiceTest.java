@@ -161,4 +161,21 @@ public class ProductServiceTest {
         verify(categoryRepository, never()).findById(any());
     }
 
+    @Test
+    void adjustStock_negativeResult_throwsException() {
+
+        // Arrange: Create a product with low stock
+        Product product = new Product(category, "Test Product", "Description", new BigDecimal("10.00"), 5, true);
+
+        when(productRepository.findById(1L))
+                .thenReturn(Optional.of(product));
+
+        // Act & Assert: Adjusting stock by -10 should throw IllegalArgumentException
+        // since 5 + (-10) = -5 which is below zero
+        assertThrows(IllegalArgumentException.class, () -> productService.adjustStock(1L, -10));
+
+        // Verify that product was never saved since exception was thrown before repository call
+        verify(productRepository, never()).save(any(Product.class));
+    }
+
 }

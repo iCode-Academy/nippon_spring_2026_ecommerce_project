@@ -1,4 +1,3 @@
-
 document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("product-form");
     const productId = document.getElementById("product-id");
@@ -20,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
 
     let products = [];
+
 
     const imageSection = document.getElementById("image-management");
     const imageProductName = document.getElementById("image-product-name");
@@ -155,6 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             item.appendChild(imageUrl);
             item.appendChild(position);
+
 
             // Create Delete button
             const deleteButton = document.createElement("button");
@@ -310,16 +311,25 @@ document.addEventListener("DOMContentLoaded", () => {
                 product.categoryName,
                 product.price,
                 product.stockQuantity,
-                product.active ? "Active" : "Inactive"
+                product.active ? "Active" : "Inactive",
+                product.updatedAt != null ? product.updatedAt.toLocaleString() : "-",
+                product.active ? `
+                    <button class="btn btn-sm btn-outline-primary toggle-active" data-id="${product.id}" ${product.active ? 'title="Deactivate"' : 'title="Activate"'}>${product.active ? 'Deactivate' : 'Activate'}</button>
+                    <button class="btn btn-sm btn-outline-secondary" data-id="${product.id}">Stock</button>
+                ` : `
+                    <button class="btn btn-sm btn-outline-primary toggle-active" data-id="${product.id}" title="Activate">Activate</button>
+                    <button class="btn btn-sm btn-outline-secondary" data-id="${product.id}">Stock</button>
+                `
             ];
 
             values.forEach(value => {
                 const cell = document.createElement("td");
-                cell.textContent = value;
+                cell.innerHTML = value;
                 row.appendChild(cell);
             });
 
             const actionCell = document.createElement("td");
+
             const editButton = document.createElement("button");
 
             editButton.type = "button";
@@ -344,10 +354,65 @@ document.addEventListener("DOMContentLoaded", () => {
 
             actionCell.appendChild(imagesButton);
 
+            // Add toggle active and stock adjust buttons
+            const actionDiv = document.createElement("div");
+            actionDiv.className = "btn-group btn-group-sm";
+            actionDiv.innerHTML = values[5];
+            actionCell.appendChild(actionDiv);
+
             row.appendChild(actionCell);
             tableBody.appendChild(row);
         });
+
+        // Attach event listeners for toggle active buttons
+        attachToggleActiveListeners();
+        attachStockAdjustListeners();
     }
+
+    function attachToggleActiveListeners() {
+        document.querySelectorAll('.toggle-active').forEach(button => {
+            button.addEventListener('click', async () => {
+                const productId = button.dataset.id;
+                try {
+                    await apiRequest(`/api/admin/products/${productId}/toggle-active`, {
+                        method: "POST"
+                    });
+                    // Refresh the product list to reflect the change
+                    await loadProducts();
+                } catch (error) {
+                    showError(error.message);
+                }
+            });
+        });
+    }
+
+    function attachStockAdjustListeners() {
+        document.querySelectorAll('.stock-adjust').forEach(button => {
+            button.addEventListener('click', async () => {
+                const productId = button.dataset.id;
+                const currentStock = parseInt(button.dataset.stock || '0');
+                const newStock = prompt(`Enter stock adjustment for product ID ${productId}:\nCurrent stock: ${currentStock}\nPositive value: add stock, Negative value: reduce stock`, "");
+                if (newStock === null) {
+                    return;
+                }
+                const quantity = parseInt(newStock);
+                if (isNaN(quantity)) {
+                    showError("Invalid number entered.");
+                    return;
+                }
+                try {
+                    await apiRequest(`/api/admin/products/${productId}/adjust-stock`, {
+                        method: "POST",
+                        body: JSON.stringify({ quantity })
+                    });
+                    await loadProducts();
+                } catch (error) {
+                    showError(error.message);
+                }
+            });
+        });
+    }
+
 
     function editProduct(product) {
         productId.value = product.id;

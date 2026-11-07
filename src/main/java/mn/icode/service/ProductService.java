@@ -2,6 +2,8 @@ package mn.icode.service;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,22 @@ public class ProductService {
     @Transactional(readOnly=true)
     public List<Product> findAll() {
         return productRepository.findAll();
+    }
+
+    @Transactional(readOnly=true)
+    public Page<Product> findActiveProducts(Pageable pageable) {
+        return productRepository.findByActiveTrue(pageable);
+    }
+
+    @Transactional(readOnly=true)
+    public Product findActiveProductById(Long id) {
+        Product product = productRepository.findById(id).orElseThrow(
+            ()-> new ResourceNotFoundException("Product not found")
+        );
+        if(!product.isActive()) {
+            throw new ResourceNotFoundException("Product not found");
+        }
+        return product;
     }
 
     @Transactional(readOnly=true)

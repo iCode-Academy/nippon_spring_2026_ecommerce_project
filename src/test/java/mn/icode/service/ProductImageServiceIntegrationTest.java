@@ -53,7 +53,7 @@ class ProductImageServiceIntegrationTest {
             String databaseName = connection.getCatalog();
 
             assertEquals(
-                "ecommerce",
+                "ecommerce_test",
                 databaseName,
                 "Integration tests must use ecommerce");
         }

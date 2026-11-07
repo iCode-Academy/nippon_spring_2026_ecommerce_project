@@ -2,6 +2,8 @@ package mn.icode.repository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import mn.icode.entity.Product;
@@ -15,4 +17,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 	boolean existsByCategoryId(Long categoryId);
 	
 	long countByCategoryId(Long categoryId);
+
+	Page<Product> findByActiveTrue(Pageable pageable);
 }

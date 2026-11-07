@@ -27,208 +27,212 @@ import mn.icode.repository.ProductRepository;
 @ActiveProfiles("postgres-test")
 class ProductImageServiceIntegrationTest {
 
-    @Autowired
-    private DataSource dataSource;
+        @Autowired
+        private DataSource dataSource;
 
-    @Autowired
-    private CategoryRepository categoryRepository;
+        @Autowired
+        private CategoryRepository categoryRepository;
 
-    @Autowired
-    private ProductRepository productRepository;
+        @Autowired
+        private ProductRepository productRepository;
 
-    @Autowired
-    private ProductImageRepository imageRepository;
+        @Autowired
+        private ProductImageRepository imageRepository;
 
-    @Autowired
-    private ProductImageService imageService;
+        @Autowired
+        private ProductImageService imageService;
 
-    @PersistenceContext
-    private EntityManager entityManager;
+        @PersistenceContext
+        private EntityManager entityManager;
 
-    @Test
-    void connectsToTestDatabase() throws Exception {
+        @Test
+        void connectsToTestDatabase() throws Exception {
 
-        try (Connection connection = dataSource.getConnection()) {
+                try (Connection connection = dataSource.getConnection()) {
 
-            String databaseName = connection.getCatalog();
+                        String databaseName = connection.getCatalog();
 
-            assertEquals(
-                "ecommerce",
-                databaseName,
-                "Integration tests must use ecommerce");
+                        String expectedDatabase = System.getenv("DB_URL") != null
+                                        ? "ecommerce"
+                                        : "ecommerce_test";
+
+                        assertEquals(
+                                        expectedDatabase,
+                                        databaseName,
+                                        "Integration tests must connect to the configured database");
+                }
         }
-    }
 
-    @Test
-    @Transactional
-    void reorderImages_updatesPositionsInPostgres() {
+        @Test
+        @Transactional
+        void reorderImages_updatesPositionsInPostgres() {
 
-        // Arrange: create category and product
-        Category category = categoryRepository.save(
-                new Category("Integration Test Category"));
+                // Arrange: create category and product
+                Category category = categoryRepository.save(
+                                new Category("Integration Test Category"));
 
-        Product product = productRepository.save(
-                new Product(
-                        category,
-                        "Integration Test Product",
-                        "Testing image ordering",
-                        new BigDecimal("15.00"),
-                        10,
-                        true));
+                Product product = productRepository.save(
+                                new Product(
+                                                category,
+                                                "Integration Test Product",
+                                                "Testing image ordering",
+                                                new BigDecimal("15.00"),
+                                                10,
+                                                true));
 
-        // Create three images
-        ProductImage first = imageRepository.saveAndFlush(
-                new ProductImage(product, "https://example.com/1.jpg", 0));
+                // Create three images
+                ProductImage first = imageRepository.saveAndFlush(
+                                new ProductImage(product, "https://example.com/1.jpg", 0));
 
-        ProductImage second = imageRepository.saveAndFlush(
-                new ProductImage(product, "https://example.com/2.jpg", 1));
+                ProductImage second = imageRepository.saveAndFlush(
+                                new ProductImage(product, "https://example.com/2.jpg", 1));
 
-        ProductImage third = imageRepository.saveAndFlush(
-                new ProductImage(product, "https://example.com/3.jpg", 2));
+                ProductImage third = imageRepository.saveAndFlush(
+                                new ProductImage(product, "https://example.com/3.jpg", 2));
 
-        // Act: reverse the image order
-        imageService.reorderImages(
-                product.getId(),
-                List.of(third.getId(), second.getId(), first.getId()));
+                // Act: reverse the image order
+                imageService.reorderImages(
+                                product.getId(),
+                                List.of(third.getId(), second.getId(), first.getId()));
 
-        // Send all pending changes to PostgreSQL
-        entityManager.flush();
+                // Send all pending changes to PostgreSQL
+                entityManager.flush();
 
-        // Clear Hibernate's cached entities
-        entityManager.clear();
+                // Clear Hibernate's cached entities
+                entityManager.clear();
 
-        // Retrieve fresh entities from PostgreSQL
+                // Retrieve fresh entities from PostgreSQL
 
-        // Assert: retrieve the new order from the database
-        List<ProductImage> reordered = imageRepository.findByProductIdOrderByPositionAsc(product.getId());
+                // Assert: retrieve the new order from the database
+                List<ProductImage> reordered = imageRepository.findByProductIdOrderByPositionAsc(product.getId());
 
-        assertEquals(third.getId(), reordered.get(0).getId());
-        assertEquals(second.getId(), reordered.get(1).getId());
-        assertEquals(first.getId(), reordered.get(2).getId());
+                assertEquals(third.getId(), reordered.get(0).getId());
+                assertEquals(second.getId(), reordered.get(1).getId());
+                assertEquals(first.getId(), reordered.get(2).getId());
 
-        assertEquals(0, reordered.get(0).getPosition());
-        assertEquals(1, reordered.get(1).getPosition());
-        assertEquals(2, reordered.get(2).getPosition());
-    }
+                assertEquals(0, reordered.get(0).getPosition());
+                assertEquals(1, reordered.get(1).getPosition());
+                assertEquals(2, reordered.get(2).getPosition());
+        }
 
-    @Test
-    @Transactional
-    void deleteImage_middleImage_reordersRemainingInPostgres() {
+        @Test
+        @Transactional
+        void deleteImage_middleImage_reordersRemainingInPostgres() {
 
-        // Arrange: create a category
-        Category category = categoryRepository.save(
-                new Category("Delete Test Category"));
+                // Arrange: create a category
+                Category category = categoryRepository.save(
+                                new Category("Delete Test Category"));
 
-        // Create a product
-        Product product = productRepository.save(
-                new Product(
-                        category,
-                        "Delete Test Product",
-                        "Testing image deletion",
-                        new BigDecimal("20.00"),
-                        5,
-                        true));
+                // Create a product
+                Product product = productRepository.save(
+                                new Product(
+                                                category,
+                                                "Delete Test Product",
+                                                "Testing image deletion",
+                                                new BigDecimal("20.00"),
+                                                5,
+                                                true));
 
-        // Create three images
-        ProductImage first = imageRepository.saveAndFlush(
-                new ProductImage(product, "https://example.com/1.jpg", 0));
+                // Create three images
+                ProductImage first = imageRepository.saveAndFlush(
+                                new ProductImage(product, "https://example.com/1.jpg", 0));
 
-        ProductImage middle = imageRepository.saveAndFlush(
-                new ProductImage(product, "https://example.com/2.jpg", 1));
+                ProductImage middle = imageRepository.saveAndFlush(
+                                new ProductImage(product, "https://example.com/2.jpg", 1));
 
-        ProductImage last = imageRepository.saveAndFlush(
-                new ProductImage(product, "https://example.com/3.jpg", 2));
+                ProductImage last = imageRepository.saveAndFlush(
+                                new ProductImage(product, "https://example.com/3.jpg", 2));
 
-        Long productId = product.getId();
-        Long firstId = first.getId();
-        Long middleId = middle.getId();
-        Long lastId = last.getId();
+                Long productId = product.getId();
+                Long firstId = first.getId();
+                Long middleId = middle.getId();
+                Long lastId = last.getId();
 
-        // Act: delete the middle image
-        imageService.deleteImage(productId, middleId);
+                // Act: delete the middle image
+                imageService.deleteImage(productId, middleId);
 
-        // Flush changes to PostgreSQL
-        entityManager.flush();
+                // Flush changes to PostgreSQL
+                entityManager.flush();
 
-        // Clear Hibernate's persistence context
-        entityManager.clear();
+                // Clear Hibernate's persistence context
+                entityManager.clear();
 
-        // Retrieve remaining images from the database
-        List<ProductImage> remaining = imageRepository.findByProductIdOrderByPositionAsc(productId);
+                // Retrieve remaining images from the database
+                List<ProductImage> remaining = imageRepository.findByProductIdOrderByPositionAsc(productId);
 
-        // Assert: only two images remain
-        assertEquals(2, remaining.size());
+                // Assert: only two images remain
+                assertEquals(2, remaining.size());
 
-        // First image remains at position 0
-        assertEquals(firstId, remaining.get(0).getId());
-        assertEquals(0, remaining.get(0).getPosition());
+                // First image remains at position 0
+                assertEquals(firstId, remaining.get(0).getId());
+                assertEquals(0, remaining.get(0).getPosition());
 
-        // Last image moves from position 2 to position 1
-        assertEquals(lastId, remaining.get(1).getId());
-        assertEquals(1, remaining.get(1).getPosition());
+                // Last image moves from position 2 to position 1
+                assertEquals(lastId, remaining.get(1).getId());
+                assertEquals(1, remaining.get(1).getPosition());
 
-        // Deleted image no longer exists
-        assertFalse(imageRepository.existsById(middleId));
-    }
+                // Deleted image no longer exists
+                assertFalse(imageRepository.existsById(middleId));
+        }
 
-    @Test
-    @Transactional
-    void addImage_afterDeletion_usesNextPositionInPostgres() {
+        @Test
+        @Transactional
+        void addImage_afterDeletion_usesNextPositionInPostgres() {
 
-        // Arrange: create category and product
-        Category category = categoryRepository.save(
-                new Category("Add After Delete Category"));
+                // Arrange: create category and product
+                Category category = categoryRepository.save(
+                                new Category("Add After Delete Category"));
 
-        Product product = productRepository.save(
-                new Product(
-                        category,
-                        "Add After Delete Product",
-                        "Testing image positions",
-                        new BigDecimal("25.00"),
-                        10,
-                        true));
+                Product product = productRepository.save(
+                                new Product(
+                                                category,
+                                                "Add After Delete Product",
+                                                "Testing image positions",
+                                                new BigDecimal("25.00"),
+                                                10,
+                                                true));
 
-        Long productId = product.getId();
+                Long productId = product.getId();
 
-        // Add three images using the service
-        ProductImage first = imageService.addImage(
-                productId, "https://example.com/1.jpg");
+                // Add three images using the service
+                ProductImage first = imageService.addImage(
+                                productId, "https://example.com/1.jpg");
 
-        ProductImage middle = imageService.addImage(
-                productId, "https://example.com/2.jpg");
+                ProductImage middle = imageService.addImage(
+                                productId, "https://example.com/2.jpg");
 
-        ProductImage last = imageService.addImage(
-                productId, "https://example.com/3.jpg");
+                ProductImage last = imageService.addImage(
+                                productId, "https://example.com/3.jpg");
 
-        // Delete the middle image
-        imageService.deleteImage(productId, middle.getId());
+                // Delete the middle image
+                imageService.deleteImage(productId, middle.getId());
 
-        // Add another image
-        ProductImage newImage = imageService.addImage(
-                productId, "https://example.com/4.jpg");
+                // Add another image
+                ProductImage newImage = imageService.addImage(
+                                productId, "https://example.com/4.jpg");
 
-        // Persist changes and clear Hibernate's cache
-        entityManager.flush();
-        entityManager.clear();
+                // Persist changes and clear Hibernate's cache
+                entityManager.flush();
+                entityManager.clear();
 
-        // Read the final image order from PostgreSQL
-        List<ProductImage> images = imageRepository.findByProductIdOrderByPositionAsc(productId);
+                // Read the final image order from PostgreSQL
+                List<ProductImage> images = imageRepository.findByProductIdOrderByPositionAsc(productId);
 
-        // Assert: three images remain
-        assertEquals(3, images.size());
+                // Assert: three images remain
+                assertEquals(3, images.size());
 
-        // Verify the image order
-        assertEquals(first.getId(), images.get(0).getId());
-        assertEquals(last.getId(), images.get(1).getId());
-        assertEquals(newImage.getId(), images.get(2).getId());
+                // Verify the image order
+                assertEquals(first.getId(), images.get(0).getId());
+                assertEquals(last.getId(), images.get(1).getId());
+                assertEquals(newImage.getId(), images.get(2).getId());
 
-        // Verify consecutive positions
-        assertEquals(0, images.get(0).getPosition());
-        assertEquals(1, images.get(1).getPosition());
-        assertEquals(2, images.get(2).getPosition());
+                // Verify consecutive positions
+                assertEquals(0, images.get(0).getPosition());
+                assertEquals(1, images.get(1).getPosition());
+                assertEquals(2, images.get(2).getPosition());
 
-        // Verify deleted image is gone
-        assertFalse(imageRepository.existsById(middle.getId()));
-    }
+                // Verify deleted image is gone
+                assertFalse(imageRepository.existsById(middle.getId()));
+        }
 
 }

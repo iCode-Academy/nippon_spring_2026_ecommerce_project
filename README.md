@@ -43,6 +43,75 @@ Errors use the shared `ProblemDetail` format described below. The page surfaces 
 
 Error pages for 403, 404, and 500 live in `templates/error/` and use the same layout. Representative mobile and desktop screenshots are attached to the pull request for UI changes (see CONTRIBUTING.md).
 
+## Public Product REST API (CAP-14)
+
+The public product REST API allows customers and anonymous users to browse active products and retrieve individual product details. Authentication is not required for GET requests.
+
+### Endpoints
+
+| Method | Endpoint | Description | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/products` | List active products with pagination | `200 OK` | `400` invalid pagination |
+| GET | `/api/products/{id}` | Retrieve an active product by ID | `200 OK` | `404` product not found or inactive |
+
+### Product listing
+
+Example request:
+
+```http
+GET /api/products?page=0&size=10
+```
+
+Query parameters:
+
+| Parameter | Default | Rules |
+|---|---|---|
+| `page` | `0` | Zero-based page index; must be 0 or greater |
+| `size` | `10` | Number of products per page; must be between 1 and 50 |
+
+Products are sorted by ID in ascending order. Only active products are returned.
+
+The response uses Spring Data's paginated `Page` structure, including the product list in `content` and pagination metadata such as `totalElements`, `totalPages`, `number`, and `size`.
+
+If no active products exist, the API returns `200 OK` with an empty `content` array.
+
+### Product detail
+
+Example request:
+
+```http
+GET /api/products/1
+```
+
+Example successful response:
+
+```json
+{
+  "id": 1,
+  "name": "Wireless Mouse",
+  "description": "Ergonomic wireless mouse",
+  "price": 29.99,
+  "stockQuantity": 15,
+  "active": true,
+  "categoryId": 2,
+  "categoryName": "Electronics"
+}
+```
+
+The API returns `404 Not Found` when the product does not exist or is inactive. Inactive products are not exposed through the public API.
+
+### Error handling
+
+- `400 Bad Request`: Invalid pagination parameters, such as a negative page index or a page size outside 1–50.
+- `404 Not Found`: Requested product does not exist or is inactive.
+- `500 Internal Server Error`: Unexpected server failure.
+
+Errors use the shared `ProblemDetail` format documented in the API Error Handling section below.
+
+### Access rules
+
+Both endpoints are publicly accessible without authentication. Product creation, updates, deletion, and inventory management remain restricted to their existing administrative endpoints.
+
 ## API Error Handling
 
 The API uses Spring `ProblemDetail` responses for consistent error handling.

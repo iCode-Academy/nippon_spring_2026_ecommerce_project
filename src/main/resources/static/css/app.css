@@ -283,13 +283,43 @@ tbody tr:last-child td {
     color: var(--color-muted);
 }
 
-input {
+input,
+select,
+textarea {
     width: 100%;
     padding: 0.5rem 0.75rem;
     font: inherit;
+    color: inherit;
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
     background: var(--color-surface);
+}
+
+textarea {
+    min-height: 6rem;
+    resize: vertical;
+}
+
+/* Filters (product listing) */
+.filter-form {
+    margin: 1.5rem 0;
+}
+
+.filter-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+}
+
+.field-search {
+    grid-column: 1 / -1;
+}
+
+.filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
 }
 
 input.input-invalid {
@@ -436,6 +466,49 @@ input.input-invalid {
     border-color: transparent;
 }
 
+/* Product cards */
+.product-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.product-card:hover {
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    transform: translateY(-2px);
+}
+
+.product-card h2 {
+    margin-bottom: 0.25rem;
+}
+
+.product-card .badge {
+    align-self: flex-start;
+}
+
+.product-card .price {
+    font-size: 1.25rem;
+    color: var(--color-primary-dark);
+    margin: 0.25rem 0;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 2rem;
+}
+
+.pagination [aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 /* Footer */
 .site-footer {
     border-top: 1px solid var(--color-border);
@@ -487,3 +560,34 @@ input.input-invalid {
     background-color: #f5f5f5;
 }
 
+/* Product card improvements */
+
+.product-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px;
+    border-radius: 16px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s ease,
+                box-shadow 0.2s ease;
+}
+
+.product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+}
+
+.product-card h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.product-card .price {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1d4ed8;
+    margin-top: auto;
+}

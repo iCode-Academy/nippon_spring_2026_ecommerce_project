@@ -1,9 +1,11 @@
 package mn.icode.service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +15,7 @@ import mn.icode.entity.Product;
 import mn.icode.exception.ResourceNotFoundException;
 import mn.icode.repository.CategoryRepository;
 import mn.icode.repository.ProductRepository;
+import mn.icode.specification.ProductSpecification;
 
 @Service 
 public class ProductService {
@@ -50,8 +53,70 @@ public class ProductService {
     public Product findById(Long id) {
         return productRepository.findById(id).orElseThrow(()-> new ResourceNotFoundException("Product not found"));
     }
+    
+    @Transactional(readOnly=true)
+    public Page<Product> searchActiveProducts(
+            String keyword,
+            Pageable pageable) {
+    	if(keyword == null || keyword.isBlank()) {
+    		return productRepository.findByActiveTrue(pageable);
+    	}
+    	return productRepository.findByActiveTrueAndNameContainingIgnoreCase(keyword.trim(), pageable);
+    }
+    
+    @Transactional(readOnly = true)
+    public Page<Product> filterProducts(
+    		String keyword,
+    		Long categoryId,
+    		BigDecimal minPrice,
+    		BigDecimal maxPrice,
+    		Boolean inStock,
+    		Pageable pageable) {
+    	
+    	if (minPrice != null && minPrice.compareTo(BigDecimal.ZERO) < 0) {
+    	    throw new IllegalArgumentException("Minimum price cannot be negative");
+    	}
+    	
+    	if (maxPrice != null && maxPrice.compareTo(BigDecimal.ZERO) < 0) {
+    	    throw new IllegalArgumentException("Maximum price cannot be negative");
+    	}
+    	
+    	if (minPrice != null && maxPrice != null && minPrice.compareTo(maxPrice) > 0) {
+    	    throw new IllegalArgumentException(
+    	        "Minimum price cannot be greater than maximum price"
+    	    );
+    	}
+    	
+    	Specification<Product> spec = ProductSpecification.isActive();
+    	
+    	if(categoryId != null) {
+    		spec = spec.and(ProductSpecification.hasCategory(categoryId));
+    	}
+    	
+    	if (minPrice != null) {
+    		spec = spec.and(ProductSpecification.minPrice(minPrice));
+    	}
 
-    @Transactional 
+    	if (maxPrice != null) {
+    		spec = spec.and(ProductSpecification.maxPrice(maxPrice));
+    	}
+    	
+    	if(keyword != null && !keyword.isBlank()) {
+    		spec = spec.and(ProductSpecification.hasKeyword(keyword.trim()));
+    	}
+    	
+    	if (inStock != null) {
+    		if (inStock) {
+    			spec = spec.and(ProductSpecification.inStock());
+    		} else {
+    			spec = spec.and(ProductSpecification.outOfStock());
+    		}
+    	}
+    	
+    	return productRepository.findAll(spec, pageable);
+    }
+    
+    @Transactional
     public Product create(ProductForm form) {
         Category category = findCategory(form.getCategoryId());
 

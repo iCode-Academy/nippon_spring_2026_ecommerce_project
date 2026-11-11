@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/layout :: head('Products')}"></head>
+
+<body>
+
+<header th:replace="~{fragments/layout :: nav}"></header>
+
+<main id="main" class="container">
+
+    <div th:replace="~{fragments/layout :: flash}"></div>
+
+    <h1>Products</h1>
+
+    <div th:if="${errorMessage}"
+         class="flash flash-error"
+         role="alert"
+         th:text="${errorMessage}">
+        Error message
+    </div>
+
+    <form th:action="@{/products}" method="get" role="search"
+          class="card filter-form">
+
+        <div class="filter-grid">
+
+            <div class="field field-search">
+                <label for="keyword">Search products</label>
+                <input
+                    type="search"
+                    id="keyword"
+                    name="keyword"
+                    th:value="${keyword}"
+                    placeholder="Search by product name...">
+            </div>
+
+            <div class="field">
+                <label for="categoryId">Category</label>
+                <select id="categoryId" name="categoryId">
+                    <option value="">All Categories</option>
+                    <option
+                        th:each="category : ${categories}"
+                        th:value="${category.id}"
+                        th:text="${category.name}"
+                        th:selected="${categoryId == category.id}">
+                    </option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="minPrice">Min price</label>
+                <input
+                    type="number"
+                    id="minPrice"
+                    name="minPrice"
+                    min="0"
+                    step="0.01"
+                    th:value="${minPrice}"
+                    placeholder="Minimum price">
+            </div>
+
+            <div class="field">
+                <label for="maxPrice">Max price</label>
+                <input
+                    type="number"
+                    id="maxPrice"
+                    name="maxPrice"
+                    min="0"
+                    step="0.01"
+                    th:value="${maxPrice}"
+                    placeholder="Maximum price">
+            </div>
+
+            <div class="field">
+                <label for="inStock">Availability</label>
+                <select id="inStock" name="inStock">
+                    <option value="">All Products</option>
+                    <option value="true"
+                            th:selected="${inStock != null and inStock}">
+                        In Stock
+                    </option>
+                    <option value="false"
+                            th:selected="${inStock != null and !inStock}">
+                        Out of Stock
+                    </option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="sort">Sort by</label>
+                <select id="sort" name="sort">
+                    <option value="default"
+                            th:selected="${sort == 'default'}">
+                        Default
+                    </option>
+                    <option value="newest"
+                            th:selected="${sort == 'newest'}">
+                        Newest
+                    </option>
+                    <option value="priceAsc"
+                            th:selected="${sort == 'priceAsc'}">
+                        Price: Low to High
+                    </option>
+                    <option value="priceDesc"
+                            th:selected="${sort == 'priceDesc'}">
+                        Price: High to Low
+                    </option>
+                </select>
+            </div>
+
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">
+                Search
+            </button>
+            <a th:href="@{/products}" class="btn btn-ghost">Reset</a>
+        </div>
+
+    </form>
+
+    <!-- Empty State -->
+    <div th:if="${errorMessage == null and #lists.isEmpty(products)}" class="empty-state card">
+
+        <h2>No products found</h2>
+		<p>
+		    No products match your search criteria.
+		    Try adjusting your filters.
+		</p>
+    </div>
+
+    <!-- Product Listing -->
+    <section th:unless="${#lists.isEmpty(products)}"
+             class="card-grid"
+             aria-label="Products">
+
+        <article class="card product-card"
+                 th:each="product : ${products}">
+
+            <!-- Product Name -->
+            <h2 th:text="${product.name}">
+                Product name
+            </h2>
+
+            <!-- Category -->
+            <p class="muted"
+               th:text="${product.category?.name}">
+                Category
+            </p>
+
+            <!-- Price -->
+            <p class="price"
+               th:text="|$${product.price}|">
+                $0.00
+            </p>
+
+            <!-- Out of Stock -->
+            <p th:if="${product.stockQuantity == 0}"
+               class="badge badge-warn">
+                Out of stock
+            </p>
+
+            <!-- In Stock -->
+            <p th:if="${product.stockQuantity > 0}"
+               class="badge badge-ok"
+               th:text="|In stock: ${product.stockQuantity}|">
+                In stock: 0
+            </p>
+
+        </article>
+
+    </section>
+
+    <!-- Pagination -->
+    <nav th:if="${totalPages > 1}"
+     class="pagination"
+     aria-label="Product pagination">
+
+        <!-- Previous -->
+        <a th:if="${currentPage > 0}"
+		   th:href="@{/products(page=${currentPage - 1},
+		                       keyword=${keyword},
+		                       categoryId=${categoryId},
+		                       minPrice=${minPrice},
+		                       maxPrice=${maxPrice},
+		                       inStock=${inStock},
+		                       sort=${sort})}"
+		   class="btn btn-ghost">
+		    Previous
+		</a>
+
+        <span th:unless="${currentPage > 0}"
+              class="btn btn-ghost"
+              aria-disabled="true">
+            Previous
+        </span>
+
+        <!-- Current Page -->
+        <span th:text="|Page ${currentPage + 1} of ${totalPages}|">
+            Page 1 of 1
+        </span>
+
+        <!-- Next -->
+        <a th:if="${currentPage + 1 < totalPages}"
+		   th:href="@{/products(page=${currentPage + 1},
+		                       keyword=${keyword},
+		                       categoryId=${categoryId},
+		                       minPrice=${minPrice},
+		                       maxPrice=${maxPrice},
+		                       inStock=${inStock},
+		                       sort=${sort})}"
+		   class="btn btn-ghost">
+		    Next
+		</a>
+
+        <span th:unless="${currentPage + 1 < totalPages}"
+              class="btn btn-ghost"
+              aria-disabled="true">
+            Next
+        </span>
+
+    </nav>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

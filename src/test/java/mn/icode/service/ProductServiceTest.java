@@ -13,6 +13,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.mock;
@@ -24,6 +26,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 import mn.icode.dto.ProductForm;
 import mn.icode.entity.Category;
@@ -227,6 +231,157 @@ public class ProductServiceTest {
                 assertTrue(result.getContent().get(0).isActive());
 
                 verify(productRepository).findByActiveTrue(pageable);
+        }
+
+        @Test
+        void searchActiveProducts_nullKeywordListsAllActiveProducts() {
+
+                // Arrange
+                Pageable pageable = PageRequest.of(0, 10);
+                Page<Product> expectedPage = new PageImpl<>(List.of(), pageable, 0);
+
+                when(productRepository.findByActiveTrue(pageable))
+                                .thenReturn(expectedPage);
+
+                // Act
+                Page<Product> result = productService.searchActiveProducts(null, pageable);
+
+                // Assert
+                assertEquals(expectedPage, result);
+                verify(productRepository).findByActiveTrue(pageable);
+                verify(productRepository, never())
+                                .findByActiveTrueAndNameContainingIgnoreCase(any(), any(Pageable.class));
+        }
+
+        @Test
+        void searchActiveProducts_blankKeywordListsAllActiveProducts() {
+
+                // Arrange
+                Pageable pageable = PageRequest.of(0, 10);
+                Page<Product> expectedPage = new PageImpl<>(List.of(), pageable, 0);
+
+                when(productRepository.findByActiveTrue(pageable))
+                                .thenReturn(expectedPage);
+
+                // Act
+                Page<Product> result = productService.searchActiveProducts("   ", pageable);
+
+                // Assert
+                assertEquals(expectedPage, result);
+                verify(productRepository).findByActiveTrue(pageable);
+                verify(productRepository, never())
+                                .findByActiveTrueAndNameContainingIgnoreCase(any(), any(Pageable.class));
+        }
+
+        @Test
+        void searchActiveProducts_trimsKeywordBeforeSearching() {
+
+                // Arrange
+                Pageable pageable = PageRequest.of(0, 10);
+                Product product = new Product(category, "Fountain Pen", "Smooth writing",
+                                new BigDecimal("12.50"), 5, true);
+                Page<Product> expectedPage = new PageImpl<>(List.of(product), pageable, 1);
+
+                when(productRepository.findByActiveTrueAndNameContainingIgnoreCase("pen", pageable))
+                                .thenReturn(expectedPage);
+
+                // Act
+                Page<Product> result = productService.searchActiveProducts("  pen  ", pageable);
+
+                // Assert
+                assertEquals(expectedPage, result);
+                verify(productRepository).findByActiveTrueAndNameContainingIgnoreCase("pen", pageable);
+        }
+
+        @Test
+        void filterProducts_returnsFilteredPageFromRepository() {
+
+                // Arrange
+                Pageable pageable = PageRequest.of(0, 12, Sort.by("price").ascending());
+                Product product = new Product(category, "Notebook", "A5 lined notebook",
+                                new BigDecimal("12.50"), 100, true);
+                Page<Product> expectedPage = new PageImpl<>(List.of(product), pageable, 1);
+
+                when(productRepository.findAll(ArgumentMatchers.<Specification<Product>>any(), eq(pageable)))
+                                .thenReturn(expectedPage);
+
+                // Act
+                Page<Product> result = productService.filterProducts("notebook", 1L,
+                                new BigDecimal("10.00"), new BigDecimal("20.00"), true, pageable);
+
+                // Assert
+                assertEquals(expectedPage, result);
+                verify(productRepository).findAll(ArgumentMatchers.<Specification<Product>>any(), eq(pageable));
+        }
+
+        @Test
+        void filterProducts_allowsEqualMinAndMaxPrice() {
+
+                // Arrange
+                Pageable pageable = PageRequest.of(0, 12);
+                Page<Product> expectedPage = new PageImpl<>(List.of(), pageable, 0);
+
+                when(productRepository.findAll(ArgumentMatchers.<Specification<Product>>any(), eq(pageable)))
+                                .thenReturn(expectedPage);
+
+                // Act
+                Page<Product> result = productService.filterProducts(null, null,
+                                new BigDecimal("10.00"), new BigDecimal("10.00"), null, pageable);
+
+                // Assert
+                assertEquals(expectedPage, result);
+                verify(productRepository).findAll(ArgumentMatchers.<Specification<Product>>any(), eq(pageable));
+        }
+
+        @Test
+        void filterProducts_rejectsNegativeMinPrice() {
+
+                // Arrange
+                Pageable pageable = PageRequest.of(0, 12);
+
+                // Act & Assert
+                IllegalArgumentException exception = assertThrows(
+                                IllegalArgumentException.class,
+                                () -> productService.filterProducts(null, null,
+                                                new BigDecimal("-1.00"), null, null, pageable));
+
+                assertEquals("Minimum price cannot be negative", exception.getMessage());
+                verify(productRepository, never())
+                                .findAll(ArgumentMatchers.<Specification<Product>>any(), any(Pageable.class));
+        }
+
+        @Test
+        void filterProducts_rejectsNegativeMaxPrice() {
+
+                // Arrange
+                Pageable pageable = PageRequest.of(0, 12);
+
+                // Act & Assert
+                IllegalArgumentException exception = assertThrows(
+                                IllegalArgumentException.class,
+                                () -> productService.filterProducts(null, null,
+                                                null, new BigDecimal("-0.01"), null, pageable));
+
+                assertEquals("Maximum price cannot be negative", exception.getMessage());
+                verify(productRepository, never())
+                                .findAll(ArgumentMatchers.<Specification<Product>>any(), any(Pageable.class));
+        }
+
+        @Test
+        void filterProducts_rejectsMinPriceGreaterThanMaxPrice() {
+
+                // Arrange
+                Pageable pageable = PageRequest.of(0, 12);
+
+                // Act & Assert
+                IllegalArgumentException exception = assertThrows(
+                                IllegalArgumentException.class,
+                                () -> productService.filterProducts(null, null,
+                                                new BigDecimal("50.00"), new BigDecimal("10.00"), null, pageable));
+
+                assertEquals("Minimum price cannot be greater than maximum price", exception.getMessage());
+                verify(productRepository, never())
+                                .findAll(ArgumentMatchers.<Specification<Product>>any(), any(Pageable.class));
         }
 
 }

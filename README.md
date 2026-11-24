@@ -2,7 +2,7 @@
 
 ## Web UI Routes (Thymeleaf)
 
-The server-rendered UI uses a shared Thymeleaf layout (`templates/fragments/layout.html`) with role-aware navigation, flash messages, and a responsive stylesheet (`static/css/app.css`) that keeps keyboard focus visible and adapts at a mobile breakpoint (max-width 40rem).
+The server-rendered UI uses a shared Thymeleaf layout (`templates/fragments/layout.html`) with role-aware navigation, flash messages, and a responsive stylesheet (`static/css/app.css`) that keeps keyboard focus visible and adapts at mobile breakpoints (max-width 60rem for the admin sidebar, 40rem for general layout).
 
 | Route | Method | Access | View | Notes |
 |---|---|---|---|---|
@@ -12,12 +12,17 @@ The server-rendered UI uses a shared Thymeleaf layout (`templates/fragments/layo
 | `/register` | GET | Public | `register` | Registration form |
 | `/register` | POST | Public | `register` / redirect | Validates input; on success flashes a message and redirects to `/login`; on duplicate email shows a form-level error; on unexpected failure shows an error flash |
 | `/home` | GET | Authenticated | `home` | Product cards; empty state when no active products |
+| `/products` | GET | Authenticated | `products/list` | Browse active products with search, filters, sorting, and pagination (CAP-15) |
+| `/products/{id}` | GET | Authenticated | `products/detail` | Product detail with ordered image gallery, stock state, category, price, and published-review summary (CAP-16) |
 | `/orders` | GET | Authenticated | `orders` | Current customer's orders table; empty state when none |
 | `/admin` | GET | `ADMIN` only | `admin/dashboard` | Stats cards and users table; empty state when no users |
 | `/admin/categories` | GET | `ADMIN` only | `admin/categories` | JavaScript-driven category management page; renders the empty state when no categories exist |
+| `/admin/products` | GET | `ADMIN` only | `admin/products` | JavaScript-driven product management page: create/edit products, manage images, toggle active state, adjust stock |
 | `/logout` | POST | Authenticated | — | Form in the navigation; redirects to `/login?logout` |
 
-Navigation differs by audience: anonymous users see *Sign in* / *Register*; authenticated customers additionally see *Shop*, *My orders*, their email, and *Sign out*; admins additionally see *Admin* and *Categories*. Non-`/api` POSTs require a CSRF token (Thymeleaf adds it automatically to `th:action` forms such as login, register, and sign out); `/api/auth/**` is CSRF-exempt; `/api/admin/**` requires both the `ADMIN` role and a valid `X-CSRF-TOKEN` header.
+Navigation differs by audience: anonymous users see *Sign in* / *Register*; authenticated customers additionally see *Shop*, *Products*, *My orders*, their email, and *Sign out*; admins get a single *Admin* link in the header plus a dedicated sidebar (`templates/fragments/admin-sidebar.html`) with *Dashboard*, *Products*, *Categories*, and *Back to shop*. The active link is highlighted in both navigation areas; on screens at or below 60rem the admin sidebar becomes a horizontally scrollable navigation strip. Non-`/api` POSTs require a CSRF token (Thymeleaf adds it automatically to `th:action` forms such as login, register, and sign out); `/api/auth/**` is CSRF-exempt; `/api/admin/**` requires both the `ADMIN` role and a valid `X-CSRF-TOKEN` header.
+
+The catalog has two distinct entry points: **Shop** (`/home`) is the quick active-product list, while **Products** (`/products`) is the searchable catalog with filters, sorting, result count, active filter chips, and numbered pagination. Both render cards from `templates/fragments/product-card.html` with an image thumbnail, stock badge, price, and *View details* action. The admin product page has a breadcrumb, an *Add product* shortcut, inline stock editing, busy states, and a success flash.
 
 ### Admin category API
 
@@ -40,6 +45,24 @@ Errors use the shared `ProblemDetail` format described below. The page surfaces 
 - Mutations must carry the CSRF token: the JavaScript reads it from the layout's meta tags and sends it in the `X-CSRF-TOKEN` header; a request without a valid token is rejected with `403 Forbidden` before it reaches the controller. Login, register, and sign out keep Thymeleaf's automatic token injection.
 - Deleting is safe: a category referenced by products is never removed — the API answers `409` with how many products must be reassigned first and the page shows an error toast. Unreferenced categories are deleted (`204`) and the list refreshes.
 - Categories are listed alphabetically; the JavaScript client shows an empty state when no categories exist and reloads the table after every mutation.
+
+### Admin product management
+
+The page at `/admin/products` is linked from the admin sidebar. It uses `static/js/admin-products.js` and the protected JSON API below, reading the CSRF token from the layout meta tags and sending it as `X-CSRF-TOKEN`.
+
+| Route | Method | Success | Errors |
+|---|---|---|---|
+| `/api/admin/products` | GET | `200`, JSON array of products | `403` wrong role |
+| `/api/admin/products` | POST | `201`, created product | `400` invalid payload, `403` missing CSRF or wrong role |
+| `/api/admin/products/{id}` | GET | `200`, product | `404` unknown id, `403` wrong role |
+| `/api/admin/products/{id}` | PUT | `200`, updated product | `400` invalid payload, `404` unknown id |
+| `/api/admin/products/{id}/toggle-active` | POST | `204` no content | `404` unknown id, `403` missing CSRF or wrong role |
+| `/api/admin/products/{id}/adjust-stock` | POST | `204` no content | `400` missing quantity or stock below zero, `404` unknown id |
+| `/api/admin/products/{productId}/images` | GET / POST | `200` / `201`, images | `400` invalid URL, `404` unknown product |
+| `/api/admin/products/{productId}/images/order` | PUT | `204` no content | `400` invalid IDs, `404` unknown product or image |
+| `/api/admin/products/{productId}/images/{imageId}` | DELETE | `204` no content | `404` unknown product or image |
+
+The product table has no "Updated At" column because products do not store an update timestamp. The active-state and stock buttons use the same CSRF-protected API and refresh the table after each mutation.
 
 Error pages for 403, 404, and 500 live in `templates/error/` and use the same layout. Representative mobile and desktop screenshots are attached to the pull request for UI changes (see CONTRIBUTING.md).
 
@@ -111,6 +134,21 @@ Errors use the shared `ProblemDetail` format documented in the API Error Handlin
 ### Access rules
 
 Both endpoints are publicly accessible without authentication. Product creation, updates, deletion, and inventory management remain restricted to their existing administrative endpoints.
+
+## Customer Product Detail (CAP-16)
+
+The detail page at `/products/{id}` is linked from each product card in `/home` and `/products`. It requires an authenticated user, like the browse page, and is rendered with `templates/products/detail.html` using the shared responsive layout.
+
+| Element | Source | Empty or failure state |
+|---|---|---|
+| Product name, description, category, price | Active product record | Missing description shows "No description provided." |
+| Image gallery | `ProductImageService.findByProductId`, ordered by `position ASC` | No images shows "No images available"; the first image is the primary image and the rest are thumbnails in order |
+| Stock state | `stockQuantity` from the active product | `0` shows "Out of stock" / "Currently unavailable."; positive stock shows "In stock: N" |
+| Review summary | Reviews with `moderationStatus = APPROVED` for the product | No published reviews shows "No published reviews yet."; otherwise shows the average rating out of 5 and the published review count |
+
+Only active products can be opened. A missing or inactive product returns `404 Not Found` and renders `error/404` for browser requests; inactive products never render as purchasable products. Pending and rejected reviews are excluded from the published-review summary. The public REST API detail endpoint keeps the `ProductResponse` shape documented above and applies the same active-product rule.
+
+The two-column layout stacks on screens at or below `40rem`. Desktop and mobile screenshots for this page are stored in `docs/ui-evidence/product-detail-desktop.png` and `docs/ui-evidence/product-detail-mobile.png`.
 
 ## API Error Handling
 

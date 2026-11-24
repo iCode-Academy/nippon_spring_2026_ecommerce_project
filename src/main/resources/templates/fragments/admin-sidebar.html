@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+<aside class="admin-sidebar" th:fragment="adminSidebar" th:if="${nav.admin}">
+    <nav class="admin-nav" aria-label="Admin navigation">
+        <p class="admin-nav-title">Administration</p>
+        <ul>
+            <li>
+                <a class="admin-nav-link" th:href="@{/admin}"
+                   th:classappend="${#strings.equals(nav.currentPath, '/admin')} ? 'is-active'">Dashboard</a>
+            </li>
+            <li>
+                <a class="admin-nav-link" th:href="@{/admin/products}"
+                   th:classappend="${#strings.startsWith(nav.currentPath, '/admin/products')} ? 'is-active'">Products</a>
+            </li>
+            <li>
+                <a class="admin-nav-link" th:href="@{/admin/categories}"
+                   th:classappend="${#strings.startsWith(nav.currentPath, '/admin/categories')} ? 'is-active'">Categories</a>
+            </li>
+        </ul>
+        <a class="admin-nav-shop" th:href="@{/products}">Back to shop</a>
+    </nav>
+</aside>
+</body>
+
+</html>

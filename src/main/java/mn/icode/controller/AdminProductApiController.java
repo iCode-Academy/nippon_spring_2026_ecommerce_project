@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import mn.icode.dto.ProductForm;
 import mn.icode.dto.ProductResponse;
+import mn.icode.dto.StockAdjustmentForm;
 import mn.icode.service.ProductService;
 
 @RestController
@@ -46,6 +47,18 @@ public class AdminProductApiController {
     @PutMapping("/{id}")
     public ProductResponse update(@PathVariable Long id, @Valid @RequestBody ProductForm form) {
         return ProductResponse.from(productService.update(id, form));
+    }
+
+    @PostMapping("/{id}/toggle-active")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void toggleActive(@PathVariable Long id) {
+        productService.toggleActiveStatus(id);
+    }
+
+    @PostMapping("/{id}/adjust-stock")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void adjustStock(@PathVariable Long id, @Valid @RequestBody StockAdjustmentForm form) {
+        productService.adjustStock(id, form.getQuantity());
     }
 
 }

@@ -119,7 +119,8 @@ public class GlobalExceptionHandler {
         modelAndView.addObject("nav", new mn.icode.web.NavModel(
                 authenticated,
                 request.isUserInRole("ADMIN"),
-                authenticated ? request.getRemoteUser() : null));
+                authenticated ? request.getRemoteUser() : null,
+                request.getRequestURI()));
         return modelAndView;
     }
 

@@ -11,6 +11,12 @@
 
     <div th:replace="~{fragments/layout :: flash}"></div>
 
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a th:href="@{/home}">Shop</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">Products</span>
+    </nav>
+
     <h1>Products</h1>
 
     <div th:if="${errorMessage}"
@@ -20,6 +26,7 @@
         Error message
     </div>
 
+    <div class="shop">
     <form th:action="@{/products}" method="get" role="search"
           class="card filter-form">
 
@@ -120,6 +127,28 @@
 
     </form>
 
+    <div class="shop-results">
+    <div class="filter-summary" th:if="${errorMessage == null}">
+        <p th:text="${resultCount == 1} ? '1 product found' : |${resultCount} products found|">
+            0 products found
+        </p>
+        <div class="chip-list" th:if="${hasFilters}">
+            <span class="chip" th:if="${keyword != null and !keyword.isBlank()}"
+                  th:text="|Search: ${keyword}|">Search</span>
+            <span class="chip" th:if="${selectedCategoryName != null}"
+                  th:text="|Category: ${selectedCategoryName}|">Category</span>
+            <span class="chip" th:if="${minPrice != null}"
+                  th:text="|Min: $${minPrice}|">Min</span>
+            <span class="chip" th:if="${maxPrice != null}"
+                  th:text="|Max: $${maxPrice}|">Max</span>
+            <span class="chip" th:if="${inStock != null}"
+                  th:text="${inStock} ? 'In stock' : 'Out of stock'">Availability</span>
+            <span class="chip" th:if="${sort != 'default'}"
+                  th:text="|Sort: ${sort}|">Sort</span>
+            <a class="chip" th:href="@{/products}">Clear all</a>
+        </div>
+    </div>
+
     <!-- Empty State -->
     <div th:if="${errorMessage == null and #lists.isEmpty(products)}" class="empty-state card">
 
@@ -135,40 +164,9 @@
              class="card-grid"
              aria-label="Products">
 
-        <article class="card product-card"
-                 th:each="product : ${products}">
-
-            <!-- Product Name -->
-            <h2 th:text="${product.name}">
-                Product name
-            </h2>
-
-            <!-- Category -->
-            <p class="muted"
-               th:text="${product.category?.name}">
-                Category
-            </p>
-
-            <!-- Price -->
-            <p class="price"
-               th:text="|$${product.price}|">
-                $0.00
-            </p>
-
-            <!-- Out of Stock -->
-            <p th:if="${product.stockQuantity == 0}"
-               class="badge badge-warn">
-                Out of stock
-            </p>
-
-            <!-- In Stock -->
-            <p th:if="${product.stockQuantity > 0}"
-               class="badge badge-ok"
-               th:text="|In stock: ${product.stockQuantity}|">
-                In stock: 0
-            </p>
-
-        </article>
+        <th:block th:each="product : ${products}">
+            <div th:replace="~{fragments/product-card :: productCard (product=${product})}"></div>
+        </th:block>
 
     </section>
 
@@ -196,9 +194,23 @@
             Previous
         </span>
 
-        <!-- Current Page -->
-        <span th:text="|Page ${currentPage + 1} of ${totalPages}|">
-            Page 1 of 1
+        <!-- Page numbers -->
+        <span th:each="pageNumber : ${pageNumbers}">
+            <a th:if="${pageNumber != currentPage}"
+               th:href="@{/products(page=${pageNumber},
+                                   keyword=${keyword},
+                                   categoryId=${categoryId},
+                                   minPrice=${minPrice},
+                                   maxPrice=${maxPrice},
+                                   inStock=${inStock},
+                                   sort=${sort})}"
+               th:text="${pageNumber + 1}"
+               class="btn btn-ghost"
+               th:aria-label="|Go to page ${pageNumber + 1}|">1</a>
+            <span th:unless="${pageNumber != currentPage}"
+                  class="btn btn-primary"
+                  aria-current="page"
+                  th:text="${pageNumber + 1}">1</span>
         </span>
 
         <!-- Next -->
@@ -221,6 +233,8 @@
         </span>
 
     </nav>
+    </div>
+    </div>
 
 </main>
 

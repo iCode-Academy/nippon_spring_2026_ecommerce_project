@@ -23,14 +23,23 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import jakarta.transaction.Transactional;
 import mn.icode.entity.Category;
 import mn.icode.entity.Product;
+import mn.icode.entity.ProductImage;
+import mn.icode.entity.Review;
+import mn.icode.entity.User;
+import mn.icode.model.Role;
+import mn.icode.model.ReviewStatus;
 import mn.icode.repository.CategoryRepository;
+import mn.icode.repository.ProductImageRepository;
 import mn.icode.repository.ProductRepository;
+import mn.icode.repository.ReviewRepository;
+import mn.icode.repository.UserRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -46,6 +55,15 @@ class CustomerBrowseIntegrationTest {
 
         @Autowired
         private ProductRepository productRepository;
+
+        @Autowired
+        private ProductImageRepository productImageRepository;
+
+        @Autowired
+        private ReviewRepository reviewRepository;
+
+        @Autowired
+        private UserRepository userRepository;
 
         private Category category;
 
@@ -70,6 +88,22 @@ class CustomerBrowseIntegrationTest {
                                 new BigDecimal(price), stock, active);
                 ReflectionTestUtils.setField(product, "createdAt", createdAt);
                 return productRepository.save(product);
+        }
+
+        private User saveCustomer(String email) {
+                User user = new User();
+                user.setFirstName("Test");
+                user.setLastName("Customer");
+                user.setEmail(email);
+                user.setPassword("secret");
+                user.setRole(Role.CUSTOMER);
+                return userRepository.save(user);
+        }
+
+        private void saveApprovedReview(User customer, Product product, int rating) {
+                Review review = new Review(customer, product, rating, "Published review");
+                ReflectionTestUtils.setField(review, "moderationStatus", ReviewStatus.APPROVED);
+                reviewRepository.save(review);
         }
 
         private String browsePageAsHtml(String... params) throws Exception {
@@ -107,6 +141,28 @@ class CustomerBrowseIntegrationTest {
                                 .andExpect(content().string(containsString("Cheap pencil")))
                                 .andExpect(content().string(not(containsString("Filler Item 1"))))
                                 .andExpect(content().string(not(containsString("Hidden Draft Pen"))));
+        }
+
+        @Test
+        void browsePageShowsThumbnailResultCountAndFilterChips() throws Exception {
+                Product product = productRepository.findAll().stream()
+                                .filter(candidate -> "Silver PEN".equals(candidate.getName()))
+                                .findFirst()
+                                .orElseThrow();
+                ProductImage image = productImageRepository.save(
+                                new ProductImage(product, "https://example.com/silver-pen.jpg", 0));
+                product.getImages().add(image);
+
+                mockMvc.perform(get("/products")
+                                .param("keyword", "Silver")
+                                .with(user("nora@example.com").roles("CUSTOMER")))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string(containsString(
+                                                "src=\"https://example.com/silver-pen.jpg\"")))
+                                .andExpect(content().string(containsString("View details")))
+                                .andExpect(content().string(containsString("1 product found")))
+                                .andExpect(content().string(containsString("Search: Silver")))
+                                .andExpect(content().string(containsString("Clear all")));
         }
 
         // --- Filter by category ---
@@ -220,7 +276,8 @@ class CustomerBrowseIntegrationTest {
                                 .andExpect(status().isOk())
                                 .andExpect(model().attribute("currentPage", 0))
                                 .andExpect(model().attribute("totalPages", 2))
-                                .andExpect(content().string(containsString("Page 1 of 2")))
+                                .andExpect(content().string(containsString("aria-label=\"Go to page 2\"")))
+                                .andExpect(content().string(containsString("aria-current=\"page\"")))
                                 .andExpect(content().string(not(containsString("Last Filler Item"))));
 
                 mockMvc.perform(get("/products")
@@ -229,7 +286,8 @@ class CustomerBrowseIntegrationTest {
                                 .with(user("nora@example.com").roles("CUSTOMER")))
                                 .andExpect(status().isOk())
                                 .andExpect(model().attribute("currentPage", 1))
-                                .andExpect(content().string(containsString("Page 2 of 2")))
+                                .andExpect(content().string(containsString("aria-label=\"Go to page 1\"")))
+                                .andExpect(content().string(containsString("aria-current=\"page\"")))
                                 .andExpect(content().string(containsString("Last Filler Item")))
                                 .andExpect(content().string(not(containsString("Filler Item 1"))));
         }
@@ -255,6 +313,82 @@ class CustomerBrowseIntegrationTest {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.content", hasSize(3)))
                                 .andExpect(jsonPath("$.number").value(2));
+        }
+
+        @Test
+        void browsePageLinksProductsToTheirDetailPage() throws Exception {
+                Product product = productRepository.findAll().stream()
+                                .filter(candidate -> "Silver PEN".equals(candidate.getName()))
+                                .findFirst()
+                                .orElseThrow();
+
+                String html = browsePageAsHtml("keyword", "Silver PEN");
+
+                assertTrue(html.contains("/products/" + product.getId()));
+        }
+
+        @Test
+        void detailPageShowsOrderedImagesStockCategoryPriceAndPublishedReviewSummary() throws Exception {
+                Product product = productRepository.save(new Product(category, "Detail Notebook",
+                                "Ruled A5 notebook", new BigDecimal("7.50"), 4, true));
+                productImageRepository.save(new ProductImage(product, "https://example.com/cover-second.jpg", 1));
+                productImageRepository.save(new ProductImage(product, "https://example.com/cover-first.jpg", 0));
+
+                String suffix = UUID.randomUUID().toString();
+                saveApprovedReview(saveCustomer("first-" + suffix + "@example.com"), product, 5);
+                saveApprovedReview(saveCustomer("second-" + suffix + "@example.com"), product, 3);
+                reviewRepository.save(new Review(saveCustomer("pending-" + suffix + "@example.com"),
+                                product, 1, "Pending review"));
+
+                String html = mockMvc.perform(get("/products/{id}", product.getId())
+                                .with(user("nora@example.com").roles("CUSTOMER")))
+                                .andExpect(status().isOk())
+                                .andExpect(view().name("products/detail"))
+                                .andExpect(content().string(containsString("Detail Notebook")))
+                                .andExpect(content().string(containsString(category.getName())))
+                                .andExpect(content().string(containsString("$7.50")))
+                                .andExpect(content().string(containsString("In stock: 4")))
+                                .andExpect(content().string(containsString("4.0")))
+                                .andExpect(content().string(containsString("out of 5")))
+                                .andExpect(content().string(containsString("Based on 2 published reviews")))
+                                .andExpect(content().string(not(containsString("Based on 3 published reviews"))))
+                                .andReturn().getResponse().getContentAsString();
+
+                assertTrue(html.indexOf("cover-first.jpg") < html.indexOf("cover-second.jpg"));
+        }
+
+        @Test
+        void detailPageShowsEmptyStatesWhenImagesAndPublishedReviewsAreMissing() throws Exception {
+                Product product = productRepository.save(new Product(category, "Bare Product",
+                                "No images or reviews", new BigDecimal("2.00"), 0, true));
+
+                mockMvc.perform(get("/products/{id}", product.getId())
+                                .with(user("nora@example.com").roles("CUSTOMER")))
+                                .andExpect(status().isOk())
+                                .andExpect(view().name("products/detail"))
+                                .andExpect(content().string(containsString("No images available")))
+                                .andExpect(content().string(containsString("No published reviews yet")))
+                                .andExpect(content().string(containsString("Out of stock")))
+                                .andExpect(content().string(not(containsString("<img"))));
+        }
+
+        @Test
+        void detailPageIsNotFoundForInactiveAndMissingProducts() throws Exception {
+                Product hidden = productRepository.save(new Product(category, "Draft Only",
+                                "Hidden draft", new BigDecimal("1.00"), 2, false));
+
+                mockMvc.perform(get("/products/{id}", hidden.getId())
+                                .with(user("nora@example.com").roles("CUSTOMER"))
+                                .accept(MediaType.TEXT_HTML))
+                                .andExpect(status().isNotFound())
+                                .andExpect(view().name("error/404"))
+                                .andExpect(content().string(not(containsString("Draft Only"))));
+
+                mockMvc.perform(get("/products/999999")
+                                .with(user("nora@example.com").roles("CUSTOMER"))
+                                .accept(MediaType.TEXT_HTML))
+                                .andExpect(status().isNotFound())
+                                .andExpect(view().name("error/404"));
         }
 
 }

@@ -13,6 +13,6 @@ public class NavModelAdvice {
         boolean authenticated = request.getUserPrincipal() != null;
         boolean admin = request.isUserInRole("ADMIN");
         String name = authenticated ? request.getRemoteUser() : null;
-        return new NavModel(authenticated, admin, name);
+        return new NavModel(authenticated, admin, name, request.getRequestURI());
     }
 }

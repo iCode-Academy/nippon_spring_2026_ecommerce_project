@@ -9,7 +9,19 @@
 <main id="main" class="container">
     <div th:replace="~{fragments/layout :: flash}"></div>
 
-    <h1>Shop</h1>
+    <section class="hero hero-compact">
+        <div class="hero-copy">
+            <p class="eyebrow">Your favorite online store</p>
+            <h1>Shop smarter.<br>Live better.</h1>
+            <p class="lead">From everyday essentials to your next favorite find, we've got you covered.</p>
+            <div class="hero-actions">
+                <a class="btn btn-secondary" th:href="@{/products}">Browse all products</a>
+            </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+            <img th:src="@{/images/hero.png}" alt="">
+        </div>
+    </section>
 
     <div th:if="${#lists.isEmpty(products)}" class="empty-state card">
         <h2>No products yet</h2>
@@ -18,17 +30,9 @@
 
     <section th:unless="${#lists.isEmpty(products)}" class="card-grid"
              aria-label="Products">
-        <article class="card product-card" th:each="product : ${products}">
-            <h2 th:text="${product.name}">Product name</h2>
-            <p class="muted" th:text="${product.category?.name}">Category</p>
-            <p class="price"
-               th:text="'$' + ${product.price}">
-                $0.00</p>
-            <p th:if="${product.stockQuantity == 0}" class="badge badge-warn">
-                Out of stock</p>
-            <p th:if="${product.stockQuantity > 0}" class="muted"
-               th:text="'In stock: ' + ${product.stockQuantity}">In stock: 0</p>
-        </article>
+        <th:block th:each="product : ${products}">
+            <div th:replace="~{fragments/product-card :: productCard (product=${product})}"></div>
+        </th:block>
     </section>
 </main>
 

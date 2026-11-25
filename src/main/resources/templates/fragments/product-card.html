@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+<article class="card product-card" th:fragment="productCard (product)">
+    <a class="card-media"
+       th:if="${product.id != null}"
+       th:href="@{/products/{id}(id=${product.id})}">
+        <img th:if="${!#lists.isEmpty(product.images)}"
+             th:src="${product.images[0].imageUrl}"
+             th:alt="${product.name}"
+             loading="lazy">
+        <span th:unless="${!#lists.isEmpty(product.images)}"
+              class="card-media-placeholder">No image available</span>
+    </a>
+    <div class="card-body">
+        <h2>
+            <a th:if="${product.id != null}"
+               th:href="@{/products/{id}(id=${product.id})}"
+               th:text="${product.name}">
+                Product name
+            </a>
+            <span th:unless="${product.id != null}" th:text="${product.name}">
+                Product name
+            </span>
+        </h2>
+        <p class="muted" th:text="${product.category?.name}">Category</p>
+        <p class="price" th:text="|$${product.price}|">$0.00</p>
+        <p th:if="${product.stockQuantity == 0}" class="badge badge-warn">
+            Out of stock
+        </p>
+        <p th:if="${product.stockQuantity > 0}" class="badge badge-ok"
+           th:text="|In stock: ${product.stockQuantity}|">
+            In stock: 0
+        </p>
+        <div class="card-actions" th:if="${product.id != null}">
+            <a class="btn btn-sm btn-outline-primary"
+               th:href="@{/products/{id}(id=${product.id})}">
+                View details
+            </a>
+        </div>
+    </div>
+</article>
+</body>
+
+</html>

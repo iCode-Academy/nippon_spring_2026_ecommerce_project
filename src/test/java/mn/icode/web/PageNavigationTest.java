@@ -33,6 +33,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import mn.icode.config.SecurityConfig;
 import mn.icode.controller.AdminPageController;
+import mn.icode.controller.AdminProductController;
 import mn.icode.controller.PageController;
 import mn.icode.entity.Category;
 import mn.icode.entity.Order;
@@ -46,7 +47,8 @@ import mn.icode.repository.ProductRepository;
 import mn.icode.repository.UserRepository;
 import mn.icode.service.UserService;
 
-@WebMvcTest(controllers = {PageController.class, AdminPageController.class})
+@WebMvcTest(controllers = {PageController.class, AdminPageController.class,
+        AdminProductController.class})
 @Import(SecurityConfig.class)
 @ImportAutoConfiguration(ServletWebSecurityAutoConfiguration.class)
 class PageNavigationTest {
@@ -86,6 +88,7 @@ class PageNavigationTest {
                 .andExpect(view().name("index"))
                 .andExpect(content().string(containsString("Sign in")))
                 .andExpect(content().string(containsString("Register")))
+                .andExpect(content().string(not(containsString("/products"))))
                 .andExpect(content().string(not(containsString("/admin"))));
     }
 
@@ -102,6 +105,10 @@ class PageNavigationTest {
         mockMvc.perform(get("/admin"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/login"));
+
+        mockMvc.perform(get("/admin/products"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login"));
     }
 
     @Test
@@ -111,6 +118,7 @@ class PageNavigationTest {
         mockMvc.perform(get("/home").with(user("nora@example.com").roles("CUSTOMER")))
                 .andExpect(status().isOk())
                 .andExpect(view().name("home"))
+                .andExpect(content().string(containsString("href=\"/products\"")))
                 .andExpect(content().string(containsString("My orders")))
                 .andExpect(content().string(containsString("Sign out")))
                 .andExpect(content().string(not(containsString("/admin"))));
@@ -132,8 +140,29 @@ class PageNavigationTest {
         mockMvc.perform(get("/admin").with(user("boss@example.com").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(view().name("admin/dashboard"))
-                .andExpect(content().string(containsString("href=\"/admin\"")))
-                .andExpect(content().string(containsString("Admin dashboard")));
+                .andExpect(content().string(containsString("aria-label=\"Admin navigation\"")))
+                .andExpect(content().string(containsString("href=\"/admin/products\"")))
+                .andExpect(content().string(containsString("href=\"/admin/categories\"")))
+                .andExpect(content().string(containsString("Admin dashboard")))
+                .andExpect(content().string(not(containsString("Manage products"))));
+    }
+
+    @Test
+    void adminsCanOpenProductManagementPage() throws Exception {
+        mockMvc.perform(get("/admin/products")
+                        .with(user("boss@example.com").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("admin/products"))
+                .andExpect(content().string(containsString("Manage Products")))
+                .andExpect(content().string(containsString("js/admin-products.js")))
+                .andExpect(content().string(containsString("href=\"/admin/products\"")));
+    }
+
+    @Test
+    void customersCannotOpenProductManagementPage() throws Exception {
+        mockMvc.perform(get("/admin/products")
+                        .with(user("nora@example.com").roles("CUSTOMER")))
+                .andExpect(status().isForbidden());
     }
 
     // --- Failure and empty states ---
@@ -151,12 +180,15 @@ class PageNavigationTest {
     void shopShowsProductCardsWhenProductsExist() throws Exception {
         Product product = new Product(new Category("Stationery"), "Fountain Pen",
                 "Smooth writing", new BigDecimal("12.50"), 5, true);
+        org.springframework.test.util.ReflectionTestUtils.setField(product, "id", 7L);
         when(productRepository.findByActiveTrue()).thenReturn(List.of(product));
 
         mockMvc.perform(get("/home").with(user("nora@example.com").roles("CUSTOMER")))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Fountain Pen")))
-                .andExpect(content().string(containsString("Stationery")));
+                .andExpect(content().string(containsString("Stationery")))
+                .andExpect(content().string(containsString("href=\"/products/7\"")))
+                .andExpect(content().string(containsString("View details")));
     }
 
     @Test

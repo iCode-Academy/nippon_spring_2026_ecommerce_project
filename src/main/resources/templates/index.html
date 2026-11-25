@@ -10,31 +10,50 @@
     <div th:replace="~{fragments/layout :: flash}"></div>
 
     <section class="hero">
-        <h1>Welcome to Nippon Shop</h1>
-        <p class="lead">Quality Japanese goods, delivered to your door.</p>
-        <div class="hero-actions" th:if="${!nav.authenticated}">
-            <a class="btn btn-primary" th:href="@{/register}">Create an account</a>
-            <a class="btn btn-secondary" th:href="@{/login}">Sign in</a>
+        <div class="hero-copy">
+            <p class="eyebrow">Your favorite online store</p>
+            <h1>Shop smarter.<br>Live better.</h1>
+            <p class="lead">From everyday essentials to your next favorite find, we've got you covered.</p>
+            <div class="hero-actions" th:if="${!nav.authenticated}">
+                <a class="btn btn-primary" th:href="@{/register}">Create an account</a>
+                <a class="btn btn-secondary" th:href="@{/login}">Sign in</a>
+            </div>
+            <div class="hero-actions" th:if="${nav.authenticated}">
+                <a class="btn btn-primary" th:href="@{/products}">Browse the catalog</a>
+                <a class="btn btn-secondary" th:href="@{/orders}">View my orders</a>
+            </div>
         </div>
-        <div class="hero-actions" th:if="${nav.authenticated}">
-            <a class="btn btn-primary" th:href="@{/home}">Browse the catalog</a>
-            <a class="btn btn-secondary" th:href="@{/orders}">View my orders</a>
+        <div class="hero-art" aria-hidden="true">
+            <img th:src="@{/images/hero.png}" alt="">
         </div>
     </section>
 
-    <section class="card-grid" aria-label="Highlights">
-        <article class="card">
-            <h2>Wide selection</h2>
-            <p>From stationery to kitchenware, find everyday Japanese favourites.</p>
-        </article>
-        <article class="card">
-            <h2>Fast delivery</h2>
-            <p>Orders are prepared quickly and tracked from checkout to doorstep.</p>
-        </article>
-        <article class="card">
-            <h2>Secure accounts</h2>
-            <p>Passwords are stored safely and every account has role-based access.</p>
-        </article>
+    <section class="benefits" aria-label="Why shop with us">
+        <div>
+            <strong>Free delivery</strong>
+            <small>On orders over $50</small>
+        </div>
+        <div>
+            <strong>Easy returns</strong>
+            <small>30-day return window</small>
+        </div>
+        <div>
+            <strong>Secure accounts</strong>
+            <small>Your data stays protected</small>
+        </div>
+        <div>
+            <strong>Friendly support</strong>
+            <small>Here when you need us</small>
+        </div>
+    </section>
+
+    <section th:if="${nav.authenticated}" class="categories" aria-label="Shop by category">
+        <a class="category" th:href="@{/products}"><strong>Stationery</strong></a>
+        <a class="category" th:href="@{/products}"><strong>Kitchen</strong></a>
+        <a class="category" th:href="@{/products}"><strong>Electronics</strong></a>
+        <a class="category" th:href="@{/products}"><strong>Home</strong></a>
+        <a class="category" th:href="@{/products}"><strong>Beauty</strong></a>
+        <a class="category" th:href="@{/products}"><strong>Books</strong></a>
     </section>
 </main>
 

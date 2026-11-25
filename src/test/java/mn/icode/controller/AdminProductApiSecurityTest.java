@@ -763,4 +763,80 @@ void adminCannotReorderNonexistentImage() throws Exception {
 }
 
 
+    @Test
+    @Transactional
+    void adminCanToggleProductActiveStatus() throws Exception {
+        Product product = saveProduct("Toggle Active Product", 5, true);
+
+        mockMvc.perform(post("/api/admin/products/{id}/toggle-active", product.getId())
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf()))
+                .andExpect(status().isNoContent());
+
+        assertFalse(productRepository.findById(product.getId())
+                .orElseThrow().isActive());
+    }
+
+    @Test
+    @Transactional
+    void adminCanAdjustProductStock() throws Exception {
+        Product product = saveProduct("Adjust Stock Product", 5, true);
+
+        mockMvc.perform(post("/api/admin/products/{id}/adjust-stock", product.getId())
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content("{\"quantity\": 3}"))
+                .andExpect(status().isNoContent());
+
+        assertEquals(8, productRepository.findById(product.getId())
+                .orElseThrow().getStockQuantity());
+    }
+
+    @Test
+    @Transactional
+    void adminCannotReduceStockBelowZero() throws Exception {
+        Product product = saveProduct("Negative Stock Product", 2, true);
+
+        mockMvc.perform(post("/api/admin/products/{id}/adjust-stock", product.getId())
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content("{\"quantity\": -5}"))
+                .andExpect(status().isBadRequest());
+
+        assertEquals(2, productRepository.findById(product.getId())
+                .orElseThrow().getStockQuantity());
+    }
+
+    @Test
+    void regularUserCannotToggleProductActiveStatus() throws Exception {
+        mockMvc.perform(post("/api/admin/products/{id}/toggle-active", 1L)
+                        .with(user("customer").roles("USER"))
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void regularUserCannotAdjustProductStock() throws Exception {
+        mockMvc.perform(post("/api/admin/products/{id}/adjust-stock", 1L)
+                        .with(user("customer").roles("USER"))
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content("{\"quantity\": 1}"))
+                .andExpect(status().isForbidden());
+    }
+
+    private Product saveProduct(String name, int stock, boolean active) {
+        Category category = categoryRepository.save(new Category(name + " Category"));
+        return productRepository.save(new Product(
+                category,
+                name,
+                "Product for action tests",
+                new BigDecimal("10.00"),
+                stock,
+                active
+        ));
+    }
+
 }

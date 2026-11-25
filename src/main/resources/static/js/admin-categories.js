@@ -8,7 +8,10 @@ const form = document.querySelector('#categoryForm');
 const editIdInput = document.querySelector('#editId');
 const nameInput = document.querySelector('#fName');
 const tableBody = document.querySelector('#categoriesTableBody');
+const tableWrap = document.querySelector('#categoriesTableWrap');
 const emptyTable = document.querySelector('#emptyTable');
+const cancelButton = document.querySelector('#cancelCategoryBtn');
+const messageRegion = document.querySelector('#message');
 
 const csrfToken = document.querySelector('meta[name="_csrf"]').content;
 const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
@@ -34,9 +37,11 @@ function renderCategories(categories) {
 
     if (categories.length === 0) {
         emptyTable.classList.remove('hidden');
+        tableWrap.classList.add('hidden');
         return;
     }
     emptyTable.classList.add('hidden');
+    tableWrap.classList.remove('hidden');
 
     for (let category of categories) {
         const row = document.createElement('tr');
@@ -48,13 +53,12 @@ function renderCategories(categories) {
         nameCell.textContent = category.name;
 
         const actionCell = document.createElement('td');
-        actionCell.style.textAlign = 'right';
+        actionCell.className = 'row-actions admin-table-actions';
 
         const editButton = document.createElement('button');
         editButton.type = 'button';
         editButton.textContent = 'Edit';
         editButton.className = 'btn btn-secondary btn-sm';
-        editButton.style.marginRight = '8px';
         editButton.addEventListener('click', () => {
             startEdit(category);
         });
@@ -171,32 +175,22 @@ function startEdit(category) {
 }
 
 function showMessage(text, isError = false) {
-    let message = document.querySelector('#message');
-
-    if (!message) {
-        message = document.createElement('div');
-        message.id = 'message';
-        message.style.position = 'fixed';
-        message.style.top = '20px';
-        message.style.right = '20px';
-        message.style.padding = '12px 18px';
-        message.style.borderRadius = '8px';
-        message.style.color = '#fff';
-        message.style.zIndex = '1000';
-        document.body.appendChild(message);
-    }
-
-    message.style.background = isError ? '#dc2626' : '#16a34a';
+    const message = document.createElement('div');
+    message.className = `flash ${isError ? 'flash-error' : 'flash-success'}`;
+    message.setAttribute('role', isError ? 'alert' : 'status');
     message.textContent = text;
-    message.hidden = false;
+
+    messageRegion.replaceChildren(message);
 
     setTimeout(() => {
-        message.hidden = true;
+        message.remove();
     }, 3000);
 }
 
 form.addEventListener("submit", handleSubmit);
 
 document.querySelector('#newCategoryBtn').addEventListener('click', showForm);
+
+cancelButton.addEventListener('click', hideForm);
 
 loadCategories();

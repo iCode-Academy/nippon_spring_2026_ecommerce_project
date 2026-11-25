@@ -72,10 +72,15 @@ class AdminCategoryPageTest {
                 .andExpect(content().string(containsString("id=\"editId\"")))
                 .andExpect(content().string(containsString("id=\"fName\"")))
                 .andExpect(content().string(containsString("id=\"categoriesTableBody\"")))
+                .andExpect(content().string(containsString("id=\"categoriesTableWrap\"")))
                 .andExpect(content().string(containsString("id=\"emptyTable\"")))
+                .andExpect(content().string(containsString("id=\"message\"")))
                 .andExpect(content().string(containsString("id=\"newCategoryBtn\"")))
+                .andExpect(content().string(containsString("aria-label=\"Admin navigation\"")))
                 .andExpect(content().string(containsString("js/admin-categories.js")))
                 .andExpect(content().string(containsString("No categories yet")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        containsString("onclick="))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         containsString("/admin/categories/new"))));
     }

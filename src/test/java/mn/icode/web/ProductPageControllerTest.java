@@ -1,13 +1,16 @@
 package mn.icode.web;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -33,16 +36,22 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import mn.icode.config.SecurityConfig;
 import mn.icode.controller.ProductPageController;
+import mn.icode.dto.ReviewSummary;
 import mn.icode.entity.Category;
 import mn.icode.entity.Product;
+import mn.icode.entity.ProductImage;
+import mn.icode.exception.ResourceNotFoundException;
 import mn.icode.repository.CategoryRepository;
+import mn.icode.service.ProductImageService;
 import mn.icode.service.ProductService;
+import mn.icode.service.ReviewService;
 
 @WebMvcTest(ProductPageController.class)
 @Import(SecurityConfig.class)
@@ -57,6 +66,12 @@ class ProductPageControllerTest {
 
         @MockitoBean
         private CategoryRepository categoryRepository;
+
+        @MockitoBean
+        private ProductImageService productImageService;
+
+        @MockitoBean
+        private ReviewService reviewService;
 
         private Category stationery;
         private Product fountainPen;
@@ -164,7 +179,8 @@ class ProductPageControllerTest {
                                 .andExpect(status().isOk())
                                 .andExpect(model().attribute("currentPage", 1))
                                 .andExpect(model().attribute("totalPages", 2))
-                                .andExpect(content().string(containsString("Page 2 of 2")));
+                                .andExpect(content().string(containsString("aria-label=\"Product pagination\"")))
+                                .andExpect(content().string(containsString("aria-current=\"page\"")));
         }
 
         // --- Pagination passed to service ---
@@ -306,6 +322,95 @@ class ProductPageControllerTest {
                                 .andExpect(model().attribute("totalPages", 0))
                                 .andExpect(content().string(containsString(
                                                 "Minimum price cannot be greater than maximum price")));
+        }
+
+        @Test
+        void anonymousUsersAreSentToLoginForDetailPage() throws Exception {
+                mockMvc.perform(get("/products/1"))
+                                .andExpect(status().is3xxRedirection())
+                                .andExpect(redirectedUrl("/login"));
+
+                verifyNoInteractions(productService, productImageService, reviewService);
+        }
+
+        @Test
+        void showProduct_rendersDetailWithOrderedImagesAndPublishedReviewSummary() throws Exception {
+                ReflectionTestUtils.setField(fountainPen, "id", 1L);
+                ProductImage secondImage = new ProductImage(fountainPen, "https://example.com/second.jpg", 0);
+                ProductImage firstImage = new ProductImage(fountainPen, "https://example.com/first.jpg", 1);
+                ReviewSummary summary = new ReviewSummary(2, 4.5);
+
+                when(productService.findActiveProductById(1L)).thenReturn(fountainPen);
+                when(productImageService.findByProductId(1L)).thenReturn(List.of(secondImage, firstImage));
+                when(reviewService.getPublishedSummary(1L)).thenReturn(summary);
+
+                String html = mockMvc.perform(get("/products/1").with(user("nora@example.com").roles("CUSTOMER")))
+                                .andExpect(status().isOk())
+                                .andExpect(view().name("products/detail"))
+                                .andExpect(model().attribute("product", fountainPen))
+                                .andExpect(model().attribute("images", List.of(secondImage, firstImage)))
+                                .andExpect(model().attribute("reviewSummary", summary))
+                                .andExpect(content().string(containsString("Fountain Pen")))
+                                .andExpect(content().string(containsString("Stationery")))
+                                .andExpect(content().string(containsString("$12.50")))
+                                .andExpect(content().string(containsString("In stock: 5")))
+                                .andExpect(content().string(containsString("https://example.com/second.jpg")))
+                                .andExpect(content().string(containsString("https://example.com/first.jpg")))
+                                .andExpect(content().string(containsString("4.5")))
+                                .andExpect(content().string(containsString("out of 5")))
+                                .andExpect(content().string(containsString("Based on 2 published reviews")))
+                                .andReturn().getResponse().getContentAsString();
+
+                assertTrue(html.indexOf("second.jpg") < html.indexOf("first.jpg"));
+                verify(productService).findActiveProductById(1L);
+                verify(productImageService).findByProductId(1L);
+                verify(reviewService).getPublishedSummary(1L);
+        }
+
+        @Test
+        void showProduct_showsEmptyStatesForProductWithoutImagesOrPublishedReviews() throws Exception {
+                ReflectionTestUtils.setField(fountainPen, "id", 2L);
+
+                when(productService.findActiveProductById(2L)).thenReturn(fountainPen);
+                when(productImageService.findByProductId(2L)).thenReturn(List.of());
+                when(reviewService.getPublishedSummary(2L)).thenReturn(ReviewSummary.empty());
+
+                mockMvc.perform(get("/products/2").with(user("nora@example.com").roles("CUSTOMER")))
+                                .andExpect(status().isOk())
+                                .andExpect(view().name("products/detail"))
+                                .andExpect(content().string(containsString("No images available")))
+                                .andExpect(content().string(containsString("No published reviews yet")))
+                                .andExpect(content().string(not(containsString("<img"))));
+        }
+
+        @Test
+        void showProduct_marksOutOfStockProductAsUnavailable() throws Exception {
+                ReflectionTestUtils.setField(fountainPen, "id", 3L);
+                fountainPen.setStockQuantity(0);
+
+                when(productService.findActiveProductById(3L)).thenReturn(fountainPen);
+                when(productImageService.findByProductId(3L)).thenReturn(List.of());
+                when(reviewService.getPublishedSummary(3L)).thenReturn(ReviewSummary.empty());
+
+                mockMvc.perform(get("/products/3").with(user("nora@example.com").roles("CUSTOMER")))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string(containsString("Out of stock")))
+                                .andExpect(content().string(containsString("Currently unavailable.")))
+                                .andExpect(content().string(not(containsString("In stock:"))));
+        }
+
+        @Test
+        void showProduct_rendersNotFoundPageForMissingOrInactiveProduct() throws Exception {
+                when(productService.findActiveProductById(999L))
+                                .thenThrow(new ResourceNotFoundException("Product not found"));
+
+                mockMvc.perform(get("/products/999")
+                                .with(user("nora@example.com").roles("CUSTOMER"))
+                                .accept(MediaType.TEXT_HTML))
+                                .andExpect(status().isNotFound())
+                                .andExpect(view().name("error/404"));
+
+                verifyNoInteractions(productImageService, reviewService);
         }
 
 }

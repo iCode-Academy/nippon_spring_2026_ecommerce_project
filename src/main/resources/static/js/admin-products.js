@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const tableBody = document.getElementById("products-table");
     const emptyMessage = document.getElementById("products-empty");
     const errorMessage = document.getElementById("form-error");
+    const successMessage = document.getElementById("products-flash");
     const formTitle = document.getElementById("form-title");
     const cancelButton = document.getElementById("cancel-edit");
     const saveButton = form.querySelector('button[type="submit"]');
@@ -42,6 +43,17 @@ document.addEventListener("DOMContentLoaded", () => {
     function clearError() {
         errorMessage.textContent = "";
         errorMessage.hidden = true;
+    }
+
+    function showSuccess(message) {
+        clearError();
+        successMessage.textContent = message;
+        successMessage.hidden = false;
+    }
+
+    function clearSuccess() {
+        successMessage.textContent = "";
+        successMessage.hidden = true;
     }
 
     async function apiRequest(url, options = {}) {
@@ -161,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const deleteButton = document.createElement("button");
 
             deleteButton.type = "button";
-            deleteButton.className = "btn";
+            deleteButton.className = "btn btn-sm btn-ghost";
             deleteButton.textContent = "Delete";
 
             // Delete image when clicked
@@ -211,13 +223,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const moveUpButton = document.createElement("button");
             moveUpButton.type = "button";
-            moveUpButton.className = "btn";
+            moveUpButton.className = "btn btn-sm btn-ghost";
             moveUpButton.textContent = "Move Up";
             moveUpButton.disabled = index === 0;
 
             const moveDownButton = document.createElement("button");
             moveDownButton.type = "button";
-            moveDownButton.className = "btn";
+            moveDownButton.className = "btn btn-sm btn-ghost";
             moveDownButton.textContent = "Move Down";
             moveDownButton.disabled = index === images.length - 1;
 
@@ -310,55 +322,81 @@ document.addEventListener("DOMContentLoaded", () => {
                 product.name,
                 product.categoryName,
                 product.price,
-                product.stockQuantity,
-                product.active ? "Active" : "Inactive",
-                product.updatedAt != null ? product.updatedAt.toLocaleString() : "-",
-                product.active ? `
-                    <button class="btn btn-sm btn-outline-primary toggle-active" data-id="${product.id}" ${product.active ? 'title="Deactivate"' : 'title="Activate"'}>${product.active ? 'Deactivate' : 'Activate'}</button>
-                    <button class="btn btn-sm btn-outline-secondary" data-id="${product.id}">Stock</button>
-                ` : `
-                    <button class="btn btn-sm btn-outline-primary toggle-active" data-id="${product.id}" title="Activate">Activate</button>
-                    <button class="btn btn-sm btn-outline-secondary" data-id="${product.id}">Stock</button>
-                `
+                null,
+                null
             ];
 
-            values.forEach(value => {
+            values.forEach((value, index) => {
                 const cell = document.createElement("td");
-                cell.innerHTML = value;
+
+                if (index === 3) {
+                    cell.className = "stock-cell";
+                    const stockControl = document.createElement("span");
+                    stockControl.className = "stock-control";
+
+                    const stockInput = document.createElement("input");
+                    stockInput.type = "text";
+                    stockInput.className = "stock-input stock-adjust";
+                    stockInput.inputMode = "numeric";
+                    stockInput.pattern = "[0-9]*";
+                    stockInput.maxLength = 4;
+                    stockInput.size = 4;
+                    stockInput.value = product.stockQuantity;
+                    stockInput.dataset.id = product.id;
+                    stockInput.dataset.stock = product.stockQuantity;
+                    stockInput.title = "Change stock and press Enter";
+                    stockInput.setAttribute("aria-label", `Stock quantity for ${product.name}`);
+                    stockControl.appendChild(stockInput);
+                    cell.appendChild(stockControl);
+                } else if (index === 4) {
+                    cell.className = "status-cell";
+                    const statusToggle = document.createElement("input");
+                    statusToggle.type = "checkbox";
+                    statusToggle.className = "status-toggle";
+                    statusToggle.checked = product.active;
+                    statusToggle.dataset.id = product.id;
+                    statusToggle.title = product.active ? "Active" : "Inactive";
+                    statusToggle.setAttribute("aria-label", `Active status for ${product.name}`);
+                    cell.appendChild(statusToggle);
+                } else {
+                    cell.textContent = value ?? "";
+                }
+
                 row.appendChild(cell);
             });
 
             const actionCell = document.createElement("td");
+            actionCell.className = "actions-cell";
+
+            const actions = document.createElement("div");
+            actions.className = "admin-table-actions";
 
             const editButton = document.createElement("button");
 
             editButton.type = "button";
-            editButton.className = "btn";
+            editButton.className = "btn btn-sm btn-ghost";
             editButton.textContent = "Edit";
 
             editButton.addEventListener("click", () => {
                 editProduct(product);
             });
 
-            actionCell.appendChild(editButton);
+            actions.appendChild(editButton);
 
             const imagesButton = document.createElement("button");
 
             imagesButton.type = "button";
-            imagesButton.className = "btn";
-            imagesButton.textContent = "Manage Images";
+            imagesButton.className = "btn btn-sm btn-ghost";
+            imagesButton.title = "Manage Images";
+            imagesButton.textContent = "Images";
 
             imagesButton.addEventListener("click", () => {
                 openImageManagement(product);
             });
 
-            actionCell.appendChild(imagesButton);
+            actions.appendChild(imagesButton);
 
-            // Add toggle active and stock adjust buttons
-            const actionDiv = document.createElement("div");
-            actionDiv.className = "btn-group btn-group-sm";
-            actionDiv.innerHTML = values[5];
-            actionCell.appendChild(actionDiv);
+            actionCell.appendChild(actions);
 
             row.appendChild(actionCell);
             tableBody.appendChild(row);
@@ -370,44 +408,64 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function attachToggleActiveListeners() {
-        document.querySelectorAll('.toggle-active').forEach(button => {
-            button.addEventListener('click', async () => {
-                const productId = button.dataset.id;
+        document.querySelectorAll('.status-toggle').forEach(checkbox => {
+            checkbox.addEventListener('change', async () => {
+                const productId = checkbox.dataset.id;
+                checkbox.disabled = true;
                 try {
                     await apiRequest(`/api/admin/products/${productId}/toggle-active`, {
                         method: "POST"
                     });
-                    // Refresh the product list to reflect the change
                     await loadProducts();
+                    showSuccess("Product status updated.");
                 } catch (error) {
                     showError(error.message);
+                    checkbox.checked = !checkbox.checked;
+                } finally {
+                    checkbox.disabled = false;
                 }
             });
         });
     }
 
     function attachStockAdjustListeners() {
-        document.querySelectorAll('.stock-adjust').forEach(button => {
-            button.addEventListener('click', async () => {
-                const productId = button.dataset.id;
-                const currentStock = parseInt(button.dataset.stock || '0');
-                const newStock = prompt(`Enter stock adjustment for product ID ${productId}:\nCurrent stock: ${currentStock}\nPositive value: add stock, Negative value: reduce stock`, "");
-                if (newStock === null) {
+        document.querySelectorAll('.stock-adjust').forEach(input => {
+            input.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    input.blur();
+                }
+            });
+
+            input.addEventListener('change', async () => {
+                const productId = input.dataset.id;
+                const targetStock = Number(input.value);
+                if (!Number.isInteger(targetStock) || targetStock < 0 || targetStock > 9999) {
+                    showError("Stock must be a whole number between 0 and 9999.");
+                    input.value = input.dataset.stock;
                     return;
                 }
-                const quantity = parseInt(newStock);
-                if (isNaN(quantity)) {
-                    showError("Invalid number entered.");
+
+                const currentStock = Number(input.dataset.stock || '0');
+                const quantity = targetStock - currentStock;
+                if (quantity === 0) {
                     return;
                 }
+
+                input.disabled = true;
                 try {
                     await apiRequest(`/api/admin/products/${productId}/adjust-stock`, {
                         method: "POST",
                         body: JSON.stringify({ quantity })
                     });
+                    input.dataset.stock = String(targetStock);
                     await loadProducts();
+                    showSuccess("Stock updated.");
                 } catch (error) {
                     showError(error.message);
+                    input.value = input.dataset.stock;
+                } finally {
+                    input.disabled = false;
                 }
             });
         });
@@ -529,6 +587,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             await loadProducts();
+            showSuccess(editing ? "Product updated." : "Product created.");
             resetForm();
         } catch (error) {
             showError(error.message);

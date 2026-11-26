@@ -13,6 +13,26 @@ function showCartFeedback(message, error = false) {
     cartFeedback.replaceChildren(notice);
 }
 
+function setCartLoading(loading) {
+    const summary = document.querySelector("#cart-summary");
+    if (!summary) return;
+    summary.setAttribute("aria-busy", String(loading));
+    document.querySelector("#cart-loading").hidden = !loading;
+}
+
+async function refreshCart() {
+    try {
+        const response = await fetch("/api/cart", {
+            credentials: "same-origin",
+            headers: { "Accept": "application/json" }
+        });
+        if (!response.ok || response.redirected) return;
+        renderCart(await response.json());
+    } catch {
+        // Keep the previously displayed cart when the refresh fails.
+    }
+}
+
 document.addEventListener("click", async (event) => {
     const button = event.target.closest(".js-add-to-cart");
     if (!button || button.disabled) return;
@@ -106,7 +126,8 @@ async function updateCartItemQuantity(itemId, newQuantity) {
 
             return true;
         } else if (response.status === 409) {
-            showCartFeedback("Requested quantity exceeds available stock.", true);
+            await refreshCart();
+            showCartFeedback("Stock or product availability has changed. Review this item or remove it.", true);
         } else if (response.status === 403) {
             showCartFeedback("You do not own this cart item or session expired.", true);
         } else if (response.status === 400) {
@@ -148,11 +169,23 @@ document.addEventListener("click", async (event) => {
     if (newQuantity < 1) return;
 
     cartOperationInProgress = true;
+    setCartLoading(true);
+    button.disabled = true;
+    const originalText = button.textContent;
+    button.textContent = "Updating…";
 
     try {
         await updateCartItemQuantity(itemId, newQuantity);
     } finally {
         cartOperationInProgress = false;
+        setCartLoading(false);
+        button.textContent = originalText;
+        const row = button.closest("tr");
+        if (row.isConnected) {
+            button.disabled = row.dataset.available === "false"
+                || (button.classList.contains("minus") && Number(input.value) <= 1);
+            if (!button.disabled) button.focus();
+        }
     }
 }); 
 function renderCart(cart) {
@@ -176,6 +209,8 @@ function renderCart(cart) {
         }
 
         row.querySelector(".quantity-input").value = item.quantity;
+        row.dataset.available = String(item.available);
+        row.querySelector(".cart-warning").hidden = item.available;
 
         row.querySelector(".product-price").textContent =
             Number(item.unitPrice).toFixed(2);
@@ -183,7 +218,7 @@ function renderCart(cart) {
         row.querySelector(".product-subtotal").textContent =
             Number(item.lineTotal).toFixed(2);
 
-        row.querySelector(".minus").disabled = item.quantity <= 1;
+        row.querySelector(".minus").disabled = item.quantity <= 1 || !item.available;
         row.querySelector(".plus").disabled = !item.available;
     });
 
@@ -261,6 +296,7 @@ document.addEventListener("click", async (event) => {
     const originalText = button.textContent;
 
     cartOperationInProgress = true;
+    setCartLoading(true);
     button.disabled = true;
     button.textContent = "Removing…";
 
@@ -284,6 +320,7 @@ document.addEventListener("click", async (event) => {
         }
     } finally {
         cartOperationInProgress = false;
+        setCartLoading(false);
 
         if (button.isConnected) {
             button.disabled = false;

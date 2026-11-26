@@ -42,14 +42,16 @@ public class CartService {
             throw new IllegalArgumentException("Quantity must be positive");
         }
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailForUpdate(email)
             .orElseThrow(() -> new AccessDeniedException("Customer account not found"));
+        if (!user.isEnabled() || user.getRole() != Role.CUSTOMER) {
+            throw new AccessDeniedException("Customer account is inactive");
+        }
 
         Cart cart = cartRepository.findByUserId(user.getId())
-            .orElseThrow(() -> new AccessDeniedException("Cart not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Cart item not found in this cart"));
 
-        CartItem item = cartItemRepository.findById(itemId)
-            .filter(cartItem -> cartItem.getCart().equals(cart))
+        CartItem item = cartItemRepository.findByIdAndCart(itemId, cart)
             .orElseThrow(() -> new ResourceNotFoundException("Cart item not found in this cart"));
 
         Product product = item.getProduct();
@@ -90,6 +92,9 @@ public class CartService {
     public CartResponse getCart(String email) {
         User user = userRepository.findByEmail(email)
             .orElseThrow(() -> new AccessDeniedException("Customer account not found"));
+        if (!user.isEnabled() || user.getRole() != Role.CUSTOMER) {
+            throw new AccessDeniedException("Customer account is inactive");
+        }
 
         return cartRepository.findByUserId(user.getId())
             .map(this::buildCartResponse)

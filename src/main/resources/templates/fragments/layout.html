@@ -7,7 +7,7 @@
     <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
     <meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
     <title th:text="${title} + ' · Nippon Shop'">Nippon Shop</title>
-    <link rel="stylesheet" th:href="@{/css/app.css(v=15)}">
+    <link rel="stylesheet" th:href="@{/css/app.css(v=16)}">
 </head>
 
 <body>
@@ -34,7 +34,7 @@
                     <a th:href="@{/orders}"
                        th:classappend="${#strings.startsWith(nav.currentPath, '/orders')} ? 'nav-active'">My orders</a>
                 </li>
-                <li th:if="${nav.authenticated}">
+                <li th:if="${nav.authenticated and !nav.admin}">
                     <a th:href="@{/cart}"
                        th:classappend="${#strings.startsWith(nav.currentPath, '/cart')} ? 'nav-active'">Cart</a>
                 </li>

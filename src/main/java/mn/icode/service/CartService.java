@@ -13,8 +13,12 @@ import mn.icode.entity.Cart;
 import mn.icode.entity.CartItem;
 import mn.icode.entity.Product;
 import mn.icode.entity.User;
+import mn.icode.exception.ConflictException;
+import mn.icode.exception.ResourceNotFoundException;
+import mn.icode.model.Role;
 import mn.icode.repository.CartItemRepository;
 import mn.icode.repository.CartRepository;
+import mn.icode.repository.ProductRepository;
 import mn.icode.repository.UserRepository;
 
 @Service 
@@ -22,11 +26,14 @@ public class CartService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final UserRepository userRepository;
+    private final ProductRepository productRepository;
 
-    public CartService(CartItemRepository cartItemRepository, CartRepository cartRepository, UserRepository userRepository) {
+    public CartService(CartItemRepository cartItemRepository, CartRepository cartRepository,
+                       UserRepository userRepository, ProductRepository productRepository) {
         this.cartItemRepository = cartItemRepository;
         this.cartRepository = cartRepository;
         this.userRepository = userRepository;
+        this.productRepository = productRepository;
     }
 
     @Transactional(readOnly=true)
@@ -37,6 +44,46 @@ public class CartService {
         return cartRepository.findByUserId(user.getId())
             .map(this::buildCartResponse)
             .orElseGet(() -> new CartResponse(null, List.of(), BigDecimal.ZERO));
+    }
+
+    @Transactional
+    public CartResponse addItem(String email, long productId, int quantity) {
+        if (productId <= 0 || quantity <= 0) {
+            throw new IllegalArgumentException("Product ID and quantity must be positive");
+        }
+
+        // Lock the customer row before finding or creating their cart. Concurrent additions
+        // (including the first addition) are then serialized for this customer's cart.
+        User user = userRepository.findByEmailForUpdate(email)
+            .orElseThrow(() -> new AccessDeniedException("Customer account not found"));
+        if (!user.isEnabled() || user.getRole() != Role.CUSTOMER) {
+            throw new AccessDeniedException("Customer account is inactive");
+        }
+
+        Product product = productRepository.findById(productId)
+            .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        if (!product.isActive() || product.getStockQuantity() == 0) {
+            throw new ConflictException("Product is unavailable");
+        }
+
+        Cart cart = cartRepository.findByUserId(user.getId()).orElse(null);
+        CartItem item = cart == null ? null : cartItemRepository.findByCartAndProduct(cart, product).orElse(null);
+        long total = (long) quantity + (item == null ? 0 : item.getQuantity());
+        if (total > product.getStockQuantity() || total > Integer.MAX_VALUE) {
+            throw new ConflictException("Requested quantity exceeds available stock");
+        }
+
+        if (cart == null) {
+            cart = cartRepository.save(new Cart(user));
+        }
+        if (item == null) {
+            item = new CartItem();
+            item.setCart(cart);
+            item.setProduct(product);
+        }
+        item.setQuantity((int) total);
+        cartItemRepository.save(item);
+        return buildCartResponse(cart);
     }
 
     private CartResponse buildCartResponse(Cart cart) {

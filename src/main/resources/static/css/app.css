@@ -931,6 +931,27 @@ input.input-invalid {
     margin-top: 0;
 }
 
+.add-to-cart {
+    margin: 1rem 0;
+}
+
+.add-to-cart label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.add-to-cart-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#cart-quantity {
+    width: 5rem;
+}
+
 .product-description {
     margin-top: 1.5rem;
 }
@@ -1181,6 +1202,10 @@ input.input-invalid {
         grid-template-columns: 1fr;
     }
 
+    #cart-quantity {
+        width: 100%;
+    }
+
     .card-media {
         height: 135px;
     }
@@ -1199,5 +1224,3 @@ input.input-invalid {
         padding: 0.5rem 0.75rem;
     }
 }
-
-

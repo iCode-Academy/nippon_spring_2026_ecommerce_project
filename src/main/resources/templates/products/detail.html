@@ -66,6 +66,18 @@
                 In stock: 0
             </p>
 
+            <div class="add-to-cart" th:if="${!nav.admin}">
+                <label for="cart-quantity">Quantity</label>
+                <div class="add-to-cart-controls">
+                    <input id="cart-quantity" type="number" min="1" step="1"
+                           th:attr="max=${product.stockQuantity}" value="1"
+                           th:disabled="${product.stockQuantity == 0}" required>
+                    <button type="button" class="btn btn-primary js-add-to-cart"
+                            th:attr="data-product-id=${product.id},data-product-name=${product.name}"
+                            th:disabled="${product.stockQuantity == 0}">Add to cart</button>
+                </div>
+            </div>
+
             <section class="product-description">
                 <h2>Description</h2>
                 <p th:if="${product.description != null and !#strings.isEmpty(product.description)}"
@@ -102,6 +114,8 @@
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<script th:src="@{/js/add-to-cart.js}" defer></script>
 
 </body>
 </html>

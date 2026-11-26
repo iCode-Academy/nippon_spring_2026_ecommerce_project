@@ -38,6 +38,9 @@
                th:href="@{/products/{id}(id=${product.id})}">
                 View details
             </a>
+            <button th:if="${!nav.admin}" type="button" class="btn btn-sm btn-primary js-add-to-cart"
+                    th:attr="data-product-id=${product.id},data-product-name=${product.name}"
+                    th:disabled="${product.stockQuantity == 0}">Add to cart</button>
         </div>
     </div>
 </article>

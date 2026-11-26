@@ -124,6 +124,7 @@ class ProductPageControllerTest {
 
         @Test
         void listProducts_rendersBrowseViewWithProductCards() throws Exception {
+                ReflectionTestUtils.setField(fountainPen, "id", 1L);
                 when(productService.filterProducts(any(), any(), any(), any(), any(), any(Pageable.class)))
                                 .thenReturn(pageContaining(fountainPen));
                 when(categoryRepository.findAll()).thenReturn(List.of(stationery));
@@ -135,7 +136,8 @@ class ProductPageControllerTest {
                                 .andExpect(content().string(containsString("Fountain Pen")))
                                 .andExpect(content().string(containsString("Stationery")))
                                 .andExpect(content().string(containsString("$12.50")))
-                                .andExpect(content().string(containsString("In stock: 5")));
+                                .andExpect(content().string(containsString("In stock: 5")))
+                                .andExpect(content().string(containsString("js-add-to-cart")));
         }
 
         @Test
@@ -362,6 +364,9 @@ class ProductPageControllerTest {
                                 .andReturn().getResponse().getContentAsString();
 
                 assertTrue(html.indexOf("second.jpg") < html.indexOf("first.jpg"));
+                assertTrue(html.contains("id=\"cart-quantity\""));
+                assertTrue(html.contains("data-product-id=\"1\""));
+                assertTrue(html.contains("/js/add-to-cart.js"));
                 verify(productService).findActiveProductById(1L);
                 verify(productImageService).findByProductId(1L);
                 verify(reviewService).getPublishedSummary(1L);
@@ -396,6 +401,7 @@ class ProductPageControllerTest {
                                 .andExpect(status().isOk())
                                 .andExpect(content().string(containsString("Out of stock")))
                                 .andExpect(content().string(containsString("Currently unavailable.")))
+                                .andExpect(content().string(containsString("disabled=\"disabled\"")))
                                 .andExpect(content().string(not(containsString("In stock:"))));
         }
 

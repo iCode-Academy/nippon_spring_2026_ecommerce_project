@@ -162,6 +162,25 @@ availability, line totals, and subtotal.
 | Method | Endpoint | Description | Success | Errors |
 |---|---|---|---|---|
 | GET | `/api/cart` | Retrieve the authenticated customer's cart | `200 OK` | `302` anonymous user, `403` access denied, `500` unexpected failure |
+| POST | `/api/cart/items` | Add a product to the authenticated customer's cart | `200 OK`, updated cart in the GET response format | `400` invalid request, `404` missing product, `409` unavailable/insufficient stock, `403` missing CSRF or forbidden account, `302` anonymous user |
+
+### Add an item (CAP-19)
+
+From the product detail, product list, or shop home page, *Add to cart* sends a JSON request without reloading the page. The detail page accepts a quantity; the list and home buttons add one. The page reads the CSRF token and header name from the layout's `_csrf` and `_csrf_header` meta tags and shows an accessible success or error message. An out-of-stock item has its add button disabled; the server always checks the latest stock and active state again.
+
+Desktop and mobile evidence of the product detail's successful add feedback is in `docs/ui-evidence/cart-add-desktop.png` and `docs/ui-evidence/cart-add-mobile.png`.
+
+```http
+POST /api/cart/items
+Content-Type: application/json
+X-CSRF-TOKEN: <token from the rendered page>
+
+{"productId":10,"quantity":2}
+```
+
+Both fields are required and must be positive integers. The response is the updated cart (`cartId`, `items`, and `subtotal`, as shown below). If no cart exists, it is created on the first successful addition. Adding a product already in the cart increases its existing quantity rather than creating another item; the **combined** quantity must not exceed the product's current stock. Concurrent additions for the same customer are serialized. Cart additions do not reserve or decrease stock. The server derives cart ownership from the signed-in customer; the request cannot choose another user's cart.
+
+Invalid or missing fields return `400` with field errors. A nonexistent product returns `404`; an inactive or out-of-stock product, or a quantity exceeding stock, returns `409`. A disabled/deleted customer, an ADMIN, or a request without a valid CSRF token returns `403`. An anonymous request follows the existing sign-in redirect (`302` to `/login`). API errors returned by the controller follow the shared `ProblemDetail` format.
 
 ### Retrieve current cart
 

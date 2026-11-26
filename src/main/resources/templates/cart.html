@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/layout :: head('Cart')}"></head>
+
+<body>
+
+<header th:replace="~{fragments/layout :: nav}"></header>
+
+<main id="main" class="container">
+
+    <div th:replace="~{fragments/layout :: flash}"></div>
+
+    <section aria-label="Cart" class="cart-summary">
+        <h1>My Shopping Cart</h1>
+
+        <div th:if="${cart.cartId == null or cart.items.isEmpty()}" class="empty-state card">
+            <p>Your cart is empty</p>
+            <a th:href="@{/products}" class="btn btn-primary">Continue shopping</a>
+        </div>
+
+        <div th:unless="${cart.cartId == null or cart.items.isEmpty()}" class="cart-items">
+            <table class="cart-table">
+                <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Subtotal</th>
+                    <th>&nbsp;</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="item : ${cart.items}">
+                    <td class="product-name">
+                        <th:block th:inline="text">
+                            <a th:href="@{/products/{id}(id=${item.productId})}" th:text="${item.productName}">Product name</a>
+                        </th:block>
+                    </td>
+                    <td class="product-price" th:text="${#numbers.formatDecimal(item.unitPrice, 1, 2)}">$0.00</td>
+                    <td class="product-quantity">
+                        <div class="quantity-control">
+                            <button type="button" class="quantity-btn minus" data-item-id="${item.id}" th:disabled="${item.quantity <= 1}">−</button>
+                            <input type="number" min="1" step="1"
+                                   value="${item.quantity}"
+                                   th:value="${item.quantity}"
+                                   readonly
+                                   class="quantity-input"
+                                   data-item-id="${item.id}"
+                                   required>
+                            <button type="button" class="quantity-btn plus" data-item-id="${item.id}" th:disabled="${item.available == false}">+</button>
+                        </div>
+                    </td>
+                    <td class="product-subtotal" th:text="${#numbers.formatDecimal(item.lineTotal, 1, 2)}">$0.00</td>
+                    <td class="product-actions">
+                        <button type="button" class="btn btn-link text-danger remove-item" data-item-id="${item.id}" th:disabled="${cart.items.size() == 1}">
+                            Remove
+                        </button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div th:unless="${cart.cartId == null or cart.items.isEmpty()}" class="cart-totals">
+            <p>Cart total: <strong th:id="cart-subtotal" th:text="${#numbers.formatDecimal(cart.subtotal, 1, 2)}">$0.00</strong></p>
+        </div>
+
+    </section>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<script th:src="@{/js/add-to-cart.js}" defer></script>
+
+</body>
+</html>

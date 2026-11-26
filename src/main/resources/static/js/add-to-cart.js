@@ -64,3 +64,100 @@ document.addEventListener("click", async (event) => {
         button.textContent = originalText;
     }
 });
+
+// Helper: update a cart item quantity inline via PATCH
+async function updateCartItemQuantity(itemId, newQuantity) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]');
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]');
+    if (!csrfToken || !csrfHeader) {
+        showCartFeedback("CSRF token missing. Please refresh and try again.", true);
+        return false;
+    }
+
+    try {
+        const response = await fetch(`/api/cart/items/${itemId}`, {
+            method: "PATCH",
+            credentials: "same-origin",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                [csrfHeader.content]: csrfToken.content
+            },
+            body: JSON.stringify({ quantity: newQuantity })
+        });
+
+        if (response.ok) {
+            const cart = await response.json();
+            // Find the updated item and return it
+            const item = cart.items.find(entry => entry.id === itemId);
+            if (item) {
+                showCartFeedback(`Quantity updated to ${item.quantity}.`, false);
+            } else {
+                showCartFeedback("Item updated but not found in cart display.", true);
+            }
+            return true;
+        } else if (response.status === 409) {
+            showCartFeedback("Requested quantity exceeds available stock.", true);
+        } else if (response.status === 403) {
+            showCartFeedback("You do not own this cart item or session expired.", true);
+        } else if (response.status === 400) {
+            showCartFeedback("Invalid quantity. Must be at least 1.", true);
+        } else if (response.status === 404) {
+            showCartFeedback("Cart item not found.", true);
+        } else {
+            showCartFeedback("Unable to update quantity. Please try again.", true);
+        }
+        return false;
+    } catch {
+        showCartFeedback("Unable to connect. Please check your connection and try again.", true);
+        return false;
+    }
+}
+
+// Handle quantity changes in the cart UI
+document.addEventListener("change", async (event) => {
+    const input = event.target.closest(".quantity-input");
+    if (!input) return;
+
+    const itemId = Number(input.dataset.itemId);
+    const newQuantity = Number(input.value);
+
+    if (newQuantity < 1) {
+        input.value = input.dataset.oldQuantity || 1;
+        showCartFeedback("Quantity must be at least 1.", true);
+        return;
+    }
+
+    // Store old quantity for revert
+    input.dataset.oldQuantity = input.value;
+
+    const success = await updateCartItemQuantity(itemId, newQuantity);
+    if (!success) {
+        // Revert on failure
+        input.value = input.dataset.oldQuantity || 1;
+    }
+});
+
+// Handle +/- buttons in the cart
+document.addEventListener("click", async (event) => {
+    const button = event.target.closest(".quantity-btn");
+    if (!button) return;
+
+    const itemId = Number(button.dataset.itemId);
+    const input = document.querySelector(`.quantity-input[data-item-id="${itemId}"]`);
+    if (!input) return;
+
+    let newQuantity = Number(input.value);
+
+    if (button.classList.contains("plus")) {
+        newQuantity += 1;
+    } else if (button.classList.contains("minus")) {
+        newQuantity -= 1;
+        if (newQuantity < 1) newQuantity = 1;
+    }
+
+    input.value = newQuantity;
+    input.dataset.oldQuantity = String(newQuantity);
+
+    await updateCartItemQuantity(itemId, newQuantity);
+});

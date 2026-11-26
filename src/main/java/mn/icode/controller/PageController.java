@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import jakarta.validation.Valid;
+import mn.icode.dto.CartResponse;
 import mn.icode.dto.RegistrationRequest;
 import mn.icode.entity.Order;
 import mn.icode.entity.User;
@@ -20,24 +21,27 @@ import mn.icode.exception.ConflictException;
 import mn.icode.repository.OrderRepository;
 import mn.icode.repository.ProductRepository;
 import mn.icode.repository.UserRepository;
+import mn.icode.service.CartService;
 import mn.icode.service.UserService;
 
 @Controller
 public class PageController {
-
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final UserService userService;
+    private final CartService cartService;
 
     public PageController(ProductRepository productRepository,
                           OrderRepository orderRepository,
                           UserRepository userRepository,
-                          UserService userService) {
+                          UserService userService,
+                          CartService cartService) {
         this.productRepository = productRepository;
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.userService = userService;
+        this.cartService = cartService;
     }
 
     @GetMapping("/")
@@ -94,6 +98,14 @@ public class PageController {
     public String home(Model model) {
         model.addAttribute("products", productRepository.findByActiveTrue());
         return "home";
+    }
+
+    @GetMapping("/cart")
+    public String cart(Model model, Authentication authentication) {
+        String email = authentication.getName();
+        var cart = cartService.getCart(email);
+        model.addAttribute("cart", cart);
+        return "cart";
     }
 
     @GetMapping("/orders")

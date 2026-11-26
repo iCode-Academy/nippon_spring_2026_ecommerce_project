@@ -36,6 +36,37 @@ public class CartService {
         this.productRepository = productRepository;
     }
 
+    @Transactional
+    public CartResponse updateItemQuantity(String email, long itemId, int newQuantity) {
+        if (newQuantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be positive");
+        }
+
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new AccessDeniedException("Customer account not found"));
+
+        Cart cart = cartRepository.findByUserId(user.getId())
+            .orElseThrow(() -> new AccessDeniedException("Cart not found"));
+
+        CartItem item = cartItemRepository.findById(itemId)
+            .filter(cartItem -> cartItem.getCart().equals(cart))
+            .orElseThrow(() -> new ResourceNotFoundException("Cart item not found in this cart"));
+
+        Product product = item.getProduct();
+        if (!product.isActive()) {
+            throw new ConflictException("Product is unavailable");
+        }
+
+        if (newQuantity > product.getStockQuantity()) {
+            throw new ConflictException("Requested quantity exceeds available stock");
+        }
+
+        item.setQuantity(newQuantity);
+        cartItemRepository.save(item);
+
+        return buildCartResponse(cart);
+    }
+
     @Transactional(readOnly=true)
     public CartResponse getCart(String email) {
         User user = userRepository.findByEmail(email)

@@ -45,6 +45,7 @@ import mn.icode.model.Role;
 import mn.icode.repository.OrderRepository;
 import mn.icode.repository.ProductRepository;
 import mn.icode.repository.UserRepository;
+import mn.icode.service.CartService;
 import mn.icode.service.UserService;
 
 @WebMvcTest(controllers = {PageController.class, AdminPageController.class,
@@ -67,6 +68,9 @@ class PageNavigationTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private CartService cartService;
 
     private static User customer() {
         User user = new User();

@@ -2,22 +2,24 @@ package mn.icode.controller;
 
 import java.math.BigDecimal;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import org.springframework.http.MediaType;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
@@ -35,7 +37,7 @@ import mn.icode.repository.UserRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("postgres_test")
+@ActiveProfiles("postgres-test")
 @Transactional
 class CartApiControllerTest {
 
@@ -384,5 +386,271 @@ class CartApiControllerTest {
                                 .andExpect(jsonPath("$.title").value("Forbidden"))
                                 .andExpect(jsonPath("$.detail").value(
                                                 "You do not have permission to access this resource."));
+        }
+
+        @Test
+        void customerCanDeleteOwnedCartItem() throws Exception {
+
+                // Arrange
+                User customer = createCustomer("delete-owner@example.com");
+                Cart cart = createCart(customer);
+
+                Product notebook = createProduct(
+                                "Delete notebook", "12.50", 10, true);
+
+                Product pen = createProduct(
+                                "Delete pen", "3.00", 20, true);
+
+                CartItem notebookItem = createCartItem(cart, notebook, 2);
+                CartItem penItem = createCartItem(cart, pen, 3);
+
+                entityManager.flush();
+                entityManager.clear();
+
+                // Act & Assert
+                mockMvc.perform(delete(ITEMS_URL + "/{itemId}", notebookItem.getId())
+                                .with(user(customer.getEmail()).roles("CUSTOMER"))
+                                .with(csrf())
+                                .accept(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.cartId").value(cart.getId()))
+                                .andExpect(jsonPath("$.items.length()").value(1))
+                                .andExpect(jsonPath("$.items[0].id").value(penItem.getId()))
+                                .andExpect(jsonPath("$.subtotal").value(9.00));
+
+                // Verify database state
+                entityManager.flush();
+                entityManager.clear();
+
+                assertFalse(cartItemRepository.existsById(notebookItem.getId()));
+
+                assertEquals(3, cartItemRepository.findById(penItem.getId())
+                                .orElseThrow().getQuantity());
+        }
+
+        @Test
+        void deletingLastItemReturnsEmptyCart() throws Exception {
+
+                // Arrange
+                User customer = createCustomer("delete-last@example.com");
+                Cart cart = createCart(customer);
+
+                Product product = createProduct(
+                                "Last notebook", "12.50", 10, true);
+
+                CartItem item = createCartItem(cart, product, 2);
+
+                entityManager.flush();
+                entityManager.clear();
+
+                // Act & Assert
+                mockMvc.perform(delete(ITEMS_URL + "/{itemId}", item.getId())
+                                .with(user(customer.getEmail()).roles("CUSTOMER"))
+                                .with(csrf())
+                                .accept(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.cartId").value(cart.getId()))
+                                .andExpect(jsonPath("$.items").isEmpty())
+                                .andExpect(jsonPath("$.subtotal").value(0));
+
+                // Verify database state
+                entityManager.flush();
+                entityManager.clear();
+
+                assertFalse(cartItemRepository.existsById(item.getId()));
+                assertTrue(cartRepository.existsById(cart.getId()));
+        }
+
+        @Test
+        void customerCannotDeleteAnotherCustomersCartItem() throws Exception {
+
+                // Arrange: Customer A
+                User customerA = createCustomer("delete-customer-a@example.com");
+                Cart cartA = createCart(customerA);
+
+                Product notebook = createProduct(
+                                "Protected notebook", "12.50", 10, true);
+
+                CartItem itemA = createCartItem(cartA, notebook, 2);
+
+                // Arrange: Customer B
+                User customerB = createCustomer("delete-customer-b@example.com");
+                Cart cartB = createCart(customerB);
+
+                Product pen = createProduct(
+                                "Protected pen", "3.00", 20, true);
+
+                CartItem itemB = createCartItem(cartB, pen, 3);
+
+                entityManager.flush();
+                entityManager.clear();
+
+                // Customer A attempts to delete Customer B's item
+                mockMvc.perform(delete(ITEMS_URL + "/{itemId}", itemB.getId())
+                                .with(user(customerA.getEmail()).roles("CUSTOMER"))
+                                .with(csrf())
+                                .accept(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isNotFound());
+
+                // Verify database state
+                entityManager.flush();
+                entityManager.clear();
+
+                assertTrue(cartItemRepository.existsById(itemA.getId()));
+                assertTrue(cartItemRepository.existsById(itemB.getId()));
+
+                assertEquals(2, cartItemRepository.findById(itemA.getId())
+                                .orElseThrow().getQuantity());
+
+                assertEquals(3, cartItemRepository.findById(itemB.getId())
+                                .orElseThrow().getQuantity());
+        }
+
+        @Test
+        void repeatedDeletionIsHandledSafely() throws Exception {
+
+                // Arrange
+                User customer = createCustomer("repeat-delete@example.com");
+                Cart cart = createCart(customer);
+
+                Product notebook = createProduct(
+                                "Repeat notebook", "12.50", 10, true);
+
+                Product pen = createProduct(
+                                "Repeat pen", "3.00", 20, true);
+
+                CartItem notebookItem = createCartItem(cart, notebook, 2);
+                CartItem penItem = createCartItem(cart, pen, 3);
+
+                entityManager.flush();
+                entityManager.clear();
+
+                // First deletion
+                mockMvc.perform(delete(ITEMS_URL + "/{itemId}", notebookItem.getId())
+                                .with(user(customer.getEmail()).roles("CUSTOMER"))
+                                .with(csrf())
+                                .accept(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.items.length()").value(1))
+                                .andExpect(jsonPath("$.subtotal").value(9.00));
+
+                // Second deletion of the same item
+                mockMvc.perform(delete(ITEMS_URL + "/{itemId}", notebookItem.getId())
+                                .with(user(customer.getEmail()).roles("CUSTOMER"))
+                                .with(csrf())
+                                .accept(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isNotFound());
+
+                // Verify database state
+                entityManager.flush();
+                entityManager.clear();
+
+                assertFalse(cartItemRepository.existsById(notebookItem.getId()));
+                assertTrue(cartItemRepository.existsById(penItem.getId()));
+
+                assertEquals(3, cartItemRepository.findById(penItem.getId())
+                                .orElseThrow().getQuantity());
+        }
+
+        @Test
+        void deleteRequiresValidCsrfToken() throws Exception {
+
+                // Arrange
+                User customer = createCustomer("delete-csrf@example.com");
+                Cart cart = createCart(customer);
+
+                Product product = createProduct(
+                                "CSRF notebook", "12.50", 10, true);
+
+                CartItem item = createCartItem(cart, product, 2);
+
+                entityManager.flush();
+                entityManager.clear();
+
+                // DELETE without CSRF token
+                mockMvc.perform(delete(ITEMS_URL + "/{itemId}", item.getId())
+                                .with(user(customer.getEmail()).roles("CUSTOMER"))
+                                .accept(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isForbidden());
+
+                // DELETE with invalid CSRF token
+                mockMvc.perform(delete(ITEMS_URL + "/{itemId}", item.getId())
+                                .with(user(customer.getEmail()).roles("CUSTOMER"))
+                                .with(csrf().useInvalidToken())
+                                .accept(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isForbidden());
+
+                // Verify database state
+                entityManager.flush();
+                entityManager.clear();
+
+                assertTrue(cartItemRepository.existsById(item.getId()));
+
+                assertEquals(2, cartItemRepository.findById(item.getId())
+                                .orElseThrow().getQuantity());
+        }
+
+        @Test
+        void adminCannotDeleteCustomerCartItem() throws Exception {
+
+                // Arrange
+                User customer = createCustomer("delete-admin-test@example.com");
+                Cart cart = createCart(customer);
+
+                Product product = createProduct(
+                                "Admin protected notebook", "12.50", 10, true);
+
+                CartItem item = createCartItem(cart, product, 2);
+
+                entityManager.flush();
+                entityManager.clear();
+
+                // Act & Assert
+                mockMvc.perform(delete(ITEMS_URL + "/{itemId}", item.getId())
+                                .with(user("admin@example.com").roles("ADMIN"))
+                                .with(csrf())
+                                .accept(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isForbidden());
+
+                // Verify database state
+                entityManager.flush();
+                entityManager.clear();
+
+                assertTrue(cartItemRepository.existsById(item.getId()));
+
+                assertEquals(2, cartItemRepository.findById(item.getId())
+                                .orElseThrow().getQuantity());
+        }
+
+        @Test
+        void unauthenticatedUserCannotDeleteCartItem() throws Exception {
+
+                // Arrange
+                User customer = createCustomer("delete-anonymous@example.com");
+                Cart cart = createCart(customer);
+
+                Product product = createProduct(
+                                "Anonymous protected notebook", "12.50", 10, true);
+
+                CartItem item = createCartItem(cart, product, 2);
+
+                entityManager.flush();
+                entityManager.clear();
+
+                // DELETE without authentication
+                mockMvc.perform(delete(ITEMS_URL + "/{itemId}", item.getId())
+                                .with(csrf())
+                                .accept(MediaType.APPLICATION_JSON))
+                                .andExpect(status().is3xxRedirection())
+                                .andExpect(header().string("Location", "/login"));
+
+                // Verify database state
+                entityManager.flush();
+                entityManager.clear();
+
+                assertTrue(cartItemRepository.existsById(item.getId()));
+
+                assertEquals(2, cartItemRepository.findById(item.getId())
+                                .orElseThrow().getQuantity());
         }
 }

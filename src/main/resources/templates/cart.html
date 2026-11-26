@@ -13,13 +13,13 @@
 
     <section aria-label="Cart" class="cart-summary">
         <h1>My Shopping Cart</h1>
-
-        <div th:if="${cart.cartId == null or cart.items.isEmpty()}" class="empty-state card">
+        <div id="cart-feedback"></div>
+        <div id="cart-empty-state" class="empty-state card" th:hidden="${!cart.items.isEmpty()}">
             <p>Your cart is empty</p>
-            <a th:href="@{/products}" class="btn btn-primary">Continue shopping</a>
+            <a id="continue-shopping" th:href="@{/products}" class="btn btn-primary">Continue shopping</a>
         </div>
 
-        <div th:unless="${cart.cartId == null or cart.items.isEmpty()}" class="cart-items">
+        <div id="cart-items" class="cart-items" th:hidden="${cart.items.isEmpty()}">
             <table class="cart-table">
                 <thead>
                 <tr>
@@ -30,7 +30,7 @@
                     <th>&nbsp;</th>
                 </tr>
                 </thead>
-                <tbody>
+                <tbody id="cart-table-body">
                 <tr th:each="item : ${cart.items}">
                     <td class="product-name">
                         <th:block th:inline="text">
@@ -40,20 +40,20 @@
                     <td class="product-price" th:text="${#numbers.formatDecimal(item.unitPrice, 1, 2)}">$0.00</td>
                     <td class="product-quantity">
                         <div class="quantity-control">
-                            <button type="button" class="quantity-btn minus" data-item-id="${item.id}" th:disabled="${item.quantity <= 1}">−</button>
+                            <button type="button" class="quantity-btn minus" th:data-item-id="${item.id}" th:disabled="${item.quantity <= 1}">−</button>
                             <input type="number" min="1" step="1"
                                    value="${item.quantity}"
                                    th:value="${item.quantity}"
                                    readonly
                                    class="quantity-input"
-                                   data-item-id="${item.id}"
+                                   th:data-item-id="${item.id}"
                                    required>
-                            <button type="button" class="quantity-btn plus" data-item-id="${item.id}" th:disabled="${item.available == false}">+</button>
+                            <button type="button" class="quantity-btn plus" th:data-item-id="${item.id}" th:disabled="${item.available == false}">+</button>
                         </div>
                     </td>
                     <td class="product-subtotal" th:text="${#numbers.formatDecimal(item.lineTotal, 1, 2)}">$0.00</td>
                     <td class="product-actions">
-                        <button type="button" class="btn btn-link text-danger remove-item" data-item-id="${item.id}" th:disabled="${cart.items.size() == 1}">
+                        <button type="button" class="btn btn-link text-danger remove-item" th:data-item-id="${item.id}" th:aria-label="|Remove ${item.productName} from cart|">
                             Remove
                         </button>
                     </td>
@@ -62,8 +62,12 @@
             </table>
         </div>
 
-        <div th:unless="${cart.cartId == null or cart.items.isEmpty()}" class="cart-totals">
-            <p>Cart total: <strong th:id="cart-subtotal" th:text="${#numbers.formatDecimal(cart.subtotal, 1, 2)}">$0.00</strong></p>
+        <div id="cart-totals" class="cart-totals" th:hidden="${cart.items.isEmpty()}">
+            <p>Cart total: 
+                <strong id="cart-subtotal" aria-live="polite" th:text="${#numbers.formatDecimal(cart.subtotal, 1, 2)}">
+                    $0.00
+                </strong>
+            </p>
         </div>
 
     </section>

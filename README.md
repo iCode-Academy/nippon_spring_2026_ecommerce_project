@@ -163,7 +163,18 @@ availability, line totals, and subtotal.
 |---|---|---|---|---|
 | GET | `/api/cart` | Retrieve the authenticated customer's cart | `200 OK` | `302` anonymous user, `403` access denied, `500` unexpected failure |
 | POST | `/api/cart/items` | Add a product to the authenticated customer's cart | `200 OK`, updated cart in the GET response format | `400` invalid request, `404` missing product, `409` unavailable/insufficient stock, `403` missing CSRF or forbidden account, `302` anonymous user |
+| PATCH | `/api/cart/items/{itemId}` | Change the quantity of an owned item | `200 OK`, updated cart | `400` missing/nonpositive quantity, `404` missing/foreign item, `409` inactive product or insufficient stock, `403` invalid/missing CSRF or forbidden account, `302` anonymous user with valid CSRF |
 | DELETE | `/api/cart/items/{itemId}` | Remove an owned cart item | `200 OK`, updated cart | `404` missing, foreign, or already deleted item, `403` invalid/missing CSRF or forbidden account, `302` anonymous user with valid CSRF |
+
+### Responsive cart page and availability rules (CAP-22)
+
+Authenticated customers can open `/cart` from the navigation. The page renders the owned cart from the server, including **current** product prices, quantity, line totals, and subtotal. Empty carts show a Continue shopping link. On narrow screens, cart rows become labelled cards; on wider screens they remain a table. Only customers may open the page or use cart mutations.
+
+Add from product pages, change quantity with the cart's +/− buttons, and remove an item with Remove. These operations use the CSRF-protected JSON API without a page reload. PATCH accepts `{"quantity":2}` for an existing cart **item ID** (not a product ID); quantity must be positive and cannot exceed current stock. The server resolves ownership from the logged-in customer and returns the updated `CartResponse`. Inactive products cannot be updated. Product stock is not reserved by cart operations.
+
+If stock drops below the stored quantity or a product becomes inactive, the item remains visible with an unavailable warning and can still be removed. Quantity buttons are disabled for unavailable items. A stock/availability conflict refreshes the displayed cart from the server and announces the change; failed requests keep existing rows and totals, display an error and allow retry. In-flight operations show a loading message; deleting the last item reveals the empty state and moves keyboard focus to Continue shopping. The subtotal continues to include unavailable items, as in `GET /api/cart`.
+
+Integration tests cover stale stock, inactive products, current database prices, quantity validation, ownership, authentication/authorization, and CSRF. Cart-page desktop and mobile evidence: `docs/ui-evidence/cart-cap22-desktop.png` and `docs/ui-evidence/cart-cap22-mobile.png`.
 ### Add an item (CAP-19)
 
 From the product detail, product list, or shop home page, *Add to cart* sends a JSON request without reloading the page. The detail page accepts a quantity; the list and home buttons add one. The page reads the CSRF token and header name from the layout's `_csrf` and `_csrf_header` meta tags and shows an accessible success or error message. An out-of-stock item has its add button disabled; the server always checks the latest stock and active state again.

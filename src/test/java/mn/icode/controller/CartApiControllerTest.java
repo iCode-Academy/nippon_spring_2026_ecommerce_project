@@ -16,10 +16,13 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.hamcrest.Matchers.containsString;
 
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
@@ -375,6 +378,114 @@ class CartApiControllerTest {
         }
 
         @Test
+        void staleStockShowsWarningAndServerPriceOnCartPage() throws Exception {
+                User customer = createCustomer("stale-page@example.com");
+                Cart cart = createCart(customer);
+                Product product = createProduct("Stale notebook", "12.50", 5, true);
+                createCartItem(cart, product, 3);
+
+                entityManager.flush();
+                entityManager.clear();
+                Product changed = productRepository.findById(product.getId()).orElseThrow();
+                changed.setStockQuantity(2);
+                changed.setPrice(new BigDecimal("15.00"));
+                productRepository.saveAndFlush(changed);
+                entityManager.clear();
+
+                mockMvc.perform(get("/api/cart").with(user(customer.getEmail()).roles("CUSTOMER")))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.items[0].available").value(false))
+                                .andExpect(jsonPath("$.items[0].unitPrice").value(15.00))
+                                .andExpect(jsonPath("$.items[0].lineTotal").value(45.00))
+                                .andExpect(jsonPath("$.subtotal").value(45.00));
+                mockMvc.perform(get("/cart").with(user(customer.getEmail()).roles("CUSTOMER")))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string(containsString("Unavailable: inactive or insufficient stock")))
+                                .andExpect(content().string(containsString("45.00")))
+                                .andExpect(content().string(containsString("15.00")))
+                                .andExpect(content().string(containsString("Remove Stale notebook from cart")));
+
+                mockMvc.perform(patch(ITEMS_URL + "/{itemId}", cartItemRepository.findByCartOrderByIdAsc(cart).getFirst().getId())
+                                .with(user(customer.getEmail()).roles("CUSTOMER")).with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":4}"))
+                                .andExpect(status().isConflict());
+        }
+
+        @Test
+        void inactiveProductRemainsVisibleButCannotBeUpdatedAndCanBeRemoved() throws Exception {
+                User customer = createCustomer("inactive-page@example.com");
+                Cart cart = createCart(customer);
+                Product product = createProduct("Inactive notebook page", "10.00", 5, true);
+                CartItem item = createCartItem(cart, product, 1);
+
+                entityManager.flush();
+                entityManager.clear();
+                Product changed = productRepository.findById(product.getId()).orElseThrow();
+                changed.setActive(false);
+                productRepository.saveAndFlush(changed);
+                entityManager.clear();
+
+                mockMvc.perform(get("/api/cart").with(user(customer.getEmail()).roles("CUSTOMER")))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.items[0].available").value(false))
+                                .andExpect(jsonPath("$.subtotal").value(10.00));
+                mockMvc.perform(get("/cart").with(user(customer.getEmail()).roles("CUSTOMER")))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string(containsString("Unavailable: inactive or insufficient stock")));
+                mockMvc.perform(patch(ITEMS_URL + "/{itemId}", item.getId())
+                                .with(user(customer.getEmail()).roles("CUSTOMER")).with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":2}"))
+                                .andExpect(status().isConflict());
+                mockMvc.perform(delete(ITEMS_URL + "/{itemId}", item.getId())
+                                .with(user(customer.getEmail()).roles("CUSTOMER")).with(csrf()))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.items").isEmpty())
+                                .andExpect(jsonPath("$.subtotal").value(0));
+        }
+
+        @Test
+        void quantityUpdateChecksStockOwnershipCsrfAndActiveCustomer() throws Exception {
+                User customer = createCustomer("quantity-owner@example.com");
+                User other = createCustomer("quantity-other@example.com");
+                User disabled = createCustomer("quantity-disabled@example.com");
+                disabled.setEnabled(false);
+                userRepository.save(disabled);
+                Cart cart = createCart(customer);
+                Product product = createProduct("Quantity notebook", "7.00", 2, true);
+                CartItem item = createCartItem(cart, product, 1);
+                entityManager.flush();
+                entityManager.clear();
+
+                var request = patch(ITEMS_URL + "/{itemId}", item.getId())
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":2}");
+                mockMvc.perform(request.with(user(other.getEmail()).roles("CUSTOMER")).with(csrf()))
+                                .andExpect(status().isNotFound());
+                mockMvc.perform(patch(ITEMS_URL + "/{itemId}", item.getId())
+                                .with(user(customer.getEmail()).roles("CUSTOMER"))
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":2}"))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(patch(ITEMS_URL + "/{itemId}", item.getId())
+                                .with(user("admin@example.com").roles("ADMIN")).with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":2}"))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(patch(ITEMS_URL + "/{itemId}", item.getId())
+                                .with(user(disabled.getEmail()).roles("CUSTOMER")).with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":2}"))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(patch(ITEMS_URL + "/{itemId}", item.getId())
+                                .with(user(customer.getEmail()).roles("CUSTOMER")).with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":3}"))
+                                .andExpect(status().isConflict());
+                mockMvc.perform(patch(ITEMS_URL + "/{itemId}", item.getId())
+                                .with(user(customer.getEmail()).roles("CUSTOMER")).with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON).content("{\"quantity\":2}"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.items[0].quantity").value(2))
+                                .andExpect(jsonPath("$.subtotal").value(14.00));
+                assertEquals(2, cartItemRepository.findById(item.getId()).orElseThrow().getQuantity());
+        }
+
+        @Test
         void authenticatedCustomerWithoutAccountReceivesForbidden()
                         throws Exception {
 
@@ -386,6 +497,20 @@ class CartApiControllerTest {
                                 .andExpect(jsonPath("$.title").value("Forbidden"))
                                 .andExpect(jsonPath("$.detail").value(
                                                 "You do not have permission to access this resource."));
+        }
+
+        @Test
+        void disabledCustomerCannotReadCartOrOpenCartPage() throws Exception {
+                User disabled = createCustomer("disabled-cart-page@example.com");
+                disabled.setEnabled(false);
+                userRepository.saveAndFlush(disabled);
+
+                mockMvc.perform(get("/api/cart")
+                                .with(user(disabled.getEmail()).roles("CUSTOMER")))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(get("/cart")
+                                .with(user(disabled.getEmail()).roles("CUSTOMER")))
+                                .andExpect(status().isForbidden());
         }
 
         @Test

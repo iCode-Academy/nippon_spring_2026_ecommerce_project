@@ -35,6 +35,8 @@ import mn.icode.config.SecurityConfig;
 import mn.icode.controller.AdminPageController;
 import mn.icode.controller.AdminProductController;
 import mn.icode.controller.PageController;
+import mn.icode.dto.CartItemResponse;
+import mn.icode.dto.CartResponse;
 import mn.icode.entity.Category;
 import mn.icode.entity.Order;
 import mn.icode.entity.Product;
@@ -170,6 +172,38 @@ class PageNavigationTest {
     }
 
     // --- Failure and empty states ---
+
+    @Test
+    void cartPageShowsEmptyStateAndRequiresCustomerRole() throws Exception {
+        when(cartService.getCart("nora@example.com"))
+                .thenReturn(new CartResponse(null, List.of(), BigDecimal.ZERO));
+
+        mockMvc.perform(get("/cart"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login"));
+        mockMvc.perform(get("/cart").with(user("boss@example.com").roles("ADMIN")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/cart").with(user("nora@example.com").roles("CUSTOMER")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Your cart is empty")))
+                .andExpect(content().string(containsString("id=\"continue-shopping\"")))
+                .andExpect(content().string(containsString("id=\"cart-loading\"")));
+    }
+
+    @Test
+    void cartPageShowsServerPricesAndUnavailableWarning() throws Exception {
+        CartItemResponse item = new CartItemResponse(3L, 7L, "Notebook", 2,
+                new BigDecimal("12.50"), false, new BigDecimal("25.00"));
+        when(cartService.getCart("nora@example.com"))
+                .thenReturn(new CartResponse(1L, List.of(item), new BigDecimal("25.00")));
+
+        mockMvc.perform(get("/cart").with(user("nora@example.com").roles("CUSTOMER")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Unavailable: inactive or insufficient stock")))
+                .andExpect(content().string(containsString("25.00")))
+                .andExpect(content().string(containsString("Remove Notebook from cart")))
+                .andExpect(content().string(containsString("data-available=\"false\"")));
+    }
 
     @Test
     void shopShowsEmptyStateWhenNoProducts() throws Exception {

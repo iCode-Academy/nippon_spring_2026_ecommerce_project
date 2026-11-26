@@ -29,6 +29,7 @@ import mn.icode.entity.CartItem;
 import mn.icode.entity.Category;
 import mn.icode.entity.Product;
 import mn.icode.entity.User;
+import mn.icode.model.Role;
 import mn.icode.exception.ResourceNotFoundException;
 import mn.icode.model.Role;
 import mn.icode.repository.CartItemRepository;
@@ -67,7 +68,9 @@ public class CartServiceTest {
         }
 
         private void mockCustomer() {
-                when(user.getId()).thenReturn(1L);
+            when(user.getId()).thenReturn(1L);
+            when(user.isEnabled()).thenReturn(true);
+            when(user.getRole()).thenReturn(Role.CUSTOMER);
 
                 when(userRepository.findByEmail(email))
                                 .thenReturn(Optional.of(user));

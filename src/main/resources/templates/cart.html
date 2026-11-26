@@ -11,15 +11,15 @@
 
     <div th:replace="~{fragments/layout :: flash}"></div>
 
-    <section aria-label="Cart" class="cart-summary">
+    <section aria-label="Cart" class="cart-summary" id="cart-summary">
         <h1>My Shopping Cart</h1>
-        <div id="cart-feedback"></div>
+        <p id="cart-loading" class="muted" role="status" hidden>Updating your cart…</p>
         <div id="cart-empty-state" class="empty-state card" th:hidden="${!cart.items.isEmpty()}">
             <p>Your cart is empty</p>
             <a id="continue-shopping" th:href="@{/products}" class="btn btn-primary">Continue shopping</a>
         </div>
 
-        <div id="cart-items" class="cart-items" th:hidden="${cart.items.isEmpty()}">
+        <div id="cart-items" class="cart-items table-wrap" th:hidden="${cart.items.isEmpty()}">
             <table class="cart-table">
                 <thead>
                 <tr>
@@ -31,16 +31,17 @@
                 </tr>
                 </thead>
                 <tbody id="cart-table-body">
-                <tr th:each="item : ${cart.items}">
-                    <td class="product-name">
-                        <th:block th:inline="text">
-                            <a th:href="@{/products/{id}(id=${item.productId})}" th:text="${item.productName}">Product name</a>
-                        </th:block>
+                <tr th:each="item : ${cart.items}" th:data-available="${item.available}">
+                    <td class="product-name" data-label="Product">
+                        <a th:href="@{/products/{id}(id=${item.productId})}" th:text="${item.productName}">Product name</a>
+                        <span class="cart-warning" th:hidden="${item.available}">
+                            Unavailable: inactive or insufficient stock. You can remove this item.
+                        </span>
                     </td>
-                    <td class="product-price" th:text="${#numbers.formatDecimal(item.unitPrice, 1, 2)}">$0.00</td>
-                    <td class="product-quantity">
+                    <td class="product-price" data-label="Price" th:text="${#numbers.formatDecimal(item.unitPrice, 1, 2)}">$0.00</td>
+                    <td class="product-quantity" data-label="Quantity">
                         <div class="quantity-control">
-                            <button type="button" class="quantity-btn minus" th:data-item-id="${item.id}" th:disabled="${item.quantity <= 1}">−</button>
+                            <button type="button" class="quantity-btn minus" th:data-item-id="${item.id}" th:aria-label="|Decrease quantity of ${item.productName}|" th:disabled="${item.quantity <= 1 or !item.available}">−</button>
                             <input type="number" min="1" step="1"
                                    value="${item.quantity}"
                                    th:value="${item.quantity}"
@@ -48,11 +49,11 @@
                                    class="quantity-input"
                                    th:data-item-id="${item.id}"
                                    required>
-                            <button type="button" class="quantity-btn plus" th:data-item-id="${item.id}" th:disabled="${item.available == false}">+</button>
+                            <button type="button" class="quantity-btn plus" th:data-item-id="${item.id}" th:aria-label="|Increase quantity of ${item.productName}|" th:disabled="${!item.available}">+</button>
                         </div>
                     </td>
-                    <td class="product-subtotal" th:text="${#numbers.formatDecimal(item.lineTotal, 1, 2)}">$0.00</td>
-                    <td class="product-actions">
+                    <td class="product-subtotal" data-label="Subtotal" th:text="${#numbers.formatDecimal(item.lineTotal, 1, 2)}">$0.00</td>
+                    <td class="product-actions" data-label="Action">
                         <button type="button" class="btn btn-link text-danger remove-item" th:data-item-id="${item.id}" th:aria-label="|Remove ${item.productName} from cart|">
                             Remove
                         </button>

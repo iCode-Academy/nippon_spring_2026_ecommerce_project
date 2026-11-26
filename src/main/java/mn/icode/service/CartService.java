@@ -67,6 +67,25 @@ public class CartService {
         return buildCartResponse(cart);
     }
 
+    @Transactional
+    public CartResponse deleteItem(String email, Long itemId) {
+        User user = userRepository.findByEmailForUpdate(email)
+            .orElseThrow(() -> new AccessDeniedException("Customer account not found"));
+
+        if(!user.isEnabled() || user.getRole() != Role.CUSTOMER) {
+            throw new AccessDeniedException("Customer account is inactive");
+        }
+
+        Cart cart = cartRepository.findByUserId(user.getId())
+            .orElseThrow(() -> new ResourceNotFoundException("Cart item not found in this cart"));
+
+        CartItem item = cartItemRepository.findByIdAndCart(itemId, cart)
+            .orElseThrow(() -> new ResourceNotFoundException("Cart item not found in this cart"));
+        
+        cartItemRepository.delete(item);
+        return buildCartResponse(cart);
+    }
+
     @Transactional(readOnly=true)
     public CartResponse getCart(String email) {
         User user = userRepository.findByEmail(email)

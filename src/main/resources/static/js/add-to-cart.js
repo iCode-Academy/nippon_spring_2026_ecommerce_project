@@ -1,6 +1,9 @@
 "use strict";
 
+const csrfToken = document.querySelector('meta[name="_csrf"]');
+const csrfHeader = document.querySelector('meta[name="_csrf_header"]');
 const cartFeedback = document.querySelector("#cart-feedback");
+let cartOperationInProgress = false;
 
 function showCartFeedback(message, error = false) {
     const notice = document.createElement("div");
@@ -18,8 +21,7 @@ document.addEventListener("click", async (event) => {
     if (quantityInput && !quantityInput.reportValidity()) return;
 
     const quantity = quantityInput ? Number(quantityInput.value) : 1;
-    const csrfToken = document.querySelector('meta[name="_csrf"]');
-    const csrfHeader = document.querySelector('meta[name="_csrf_header"]');
+
     if (!csrfToken || !csrfHeader) {
         showCartFeedback("Unable to add this item right now. Please refresh and try again.", true);
         return;
@@ -67,8 +69,6 @@ document.addEventListener("click", async (event) => {
 
 // Helper: update a cart item quantity inline via PATCH
 async function updateCartItemQuantity(itemId, newQuantity) {
-    const csrfToken = document.querySelector('meta[name="_csrf"]');
-    const csrfHeader = document.querySelector('meta[name="_csrf_header"]');
     if (!csrfToken || !csrfHeader) {
         showCartFeedback("CSRF token missing. Please refresh and try again.", true);
         return false;
@@ -86,15 +86,24 @@ async function updateCartItemQuantity(itemId, newQuantity) {
             body: JSON.stringify({ quantity: newQuantity })
         });
 
+        if (response.redirected) {
+            showCartFeedback("Please sign in and try again.", true);
+            return false;
+        }
+
         if (response.ok) {
             const cart = await response.json();
-            // Find the updated item and return it
+
+            renderCart(cart);
+
             const item = cart.items.find(entry => entry.id === itemId);
+
             if (item) {
-                showCartFeedback(`Quantity updated to ${item.quantity}.`, false);
+                showCartFeedback(`Quantity updated to ${item.quantity}.`);
             } else {
-                showCartFeedback("Item updated but not found in cart display.", true);
+                showCartFeedback("Cart item is no longer available.", true);
             }
+
             return true;
         } else if (response.status === 409) {
             showCartFeedback("Requested quantity exceeds available stock.", true);
@@ -114,50 +123,172 @@ async function updateCartItemQuantity(itemId, newQuantity) {
     }
 }
 
-// Handle quantity changes in the cart UI
-document.addEventListener("change", async (event) => {
-    const input = event.target.closest(".quantity-input");
-    if (!input) return;
-
-    const itemId = Number(input.dataset.itemId);
-    const newQuantity = Number(input.value);
-
-    if (newQuantity < 1) {
-        input.value = input.dataset.oldQuantity || 1;
-        showCartFeedback("Quantity must be at least 1.", true);
-        return;
-    }
-
-    // Store old quantity for revert
-    input.dataset.oldQuantity = input.value;
-
-    const success = await updateCartItemQuantity(itemId, newQuantity);
-    if (!success) {
-        // Revert on failure
-        input.value = input.dataset.oldQuantity || 1;
-    }
-});
-
 // Handle +/- buttons in the cart
 document.addEventListener("click", async (event) => {
     const button = event.target.closest(".quantity-btn");
-    if (!button) return;
+
+    if (!button || button.disabled || cartOperationInProgress) return;
 
     const itemId = Number(button.dataset.itemId);
-    const input = document.querySelector(`.quantity-input[data-item-id="${itemId}"]`);
+    const input = document.querySelector(
+        `.quantity-input[data-item-id="${itemId}"]`
+    );
+
     if (!input) return;
 
-    let newQuantity = Number(input.value);
+    const oldQuantity = Number(input.value);
+    let newQuantity = oldQuantity;
 
     if (button.classList.contains("plus")) {
         newQuantity += 1;
     } else if (button.classList.contains("minus")) {
         newQuantity -= 1;
-        if (newQuantity < 1) newQuantity = 1;
     }
 
-    input.value = newQuantity;
-    input.dataset.oldQuantity = String(newQuantity);
+    if (newQuantity < 1) return;
 
-    await updateCartItemQuantity(itemId, newQuantity);
+    cartOperationInProgress = true;
+
+    try {
+        await updateCartItemQuantity(itemId, newQuantity);
+    } finally {
+        cartOperationInProgress = false;
+    }
+}); 
+function renderCart(cart) {
+    const tableBody = document.querySelector("#cart-table-body");
+    const cartItems = document.querySelector("#cart-items");
+    const cartTotals = document.querySelector("#cart-totals");
+    const emptyState = document.querySelector("#cart-empty-state");
+    const subtotal = document.querySelector("#cart-subtotal");
+
+    const itemsById = new Map(
+        cart.items.map(item => [String(item.id), item])
+    );
+
+    tableBody.querySelectorAll("tr").forEach(row => {
+        const button = row.querySelector(".remove-item");
+        const item = itemsById.get(button.dataset.itemId);
+
+        if (!item) {
+            row.remove();
+            return;
+        }
+
+        row.querySelector(".quantity-input").value = item.quantity;
+
+        row.querySelector(".product-price").textContent =
+            Number(item.unitPrice).toFixed(2);
+
+        row.querySelector(".product-subtotal").textContent =
+            Number(item.lineTotal).toFixed(2);
+
+        row.querySelector(".minus").disabled = item.quantity <= 1;
+        row.querySelector(".plus").disabled = !item.available;
+    });
+
+    subtotal.textContent = Number(cart.subtotal).toFixed(2);
+
+    const isEmpty = cart.items.length === 0;
+
+    cartItems.hidden = isEmpty;
+    cartTotals.hidden = isEmpty;
+    emptyState.hidden = !isEmpty;
+}
+
+async function deleteCartItem(itemId) {
+
+    if (!csrfToken || !csrfHeader) {
+        showCartFeedback("CSRF token missing. Please refresh and try again.",
+            true
+        );
+        return false;
+    }
+
+    try {
+        const response = await fetch(`/api/cart/items/${itemId}`, {
+            method: "DELETE",
+            credentials: "same-origin",
+            headers: {
+                "Accept": "application/json",
+                [csrfHeader.content]: csrfToken.content
+            }
+        });
+
+        if (response.redirected) {
+            showCartFeedback("Please sign in and try again.", true);
+            return false;
+        }
+
+        if (response.ok) {
+            const cart = await response.json();
+
+            renderCart(cart);
+            showCartFeedback("Item removed from cart.");
+
+            return true;
+        }
+
+        if (response.status === 404) {
+            showCartFeedback("Cart item not found or already removed. Please refresh the page.", true);
+        }
+        else if (response.status === 403) {
+            showCartFeedback("Your session has expired or you do not have permission.", true);
+        }
+        else {
+            showCartFeedback("Unable to remove item. Please try again.", true);
+        }
+        return false;
+    } catch {
+        showCartFeedback("Unable to connect. Please check your connection and try again.", true);
+        return false;
+    }
+
+}
+
+document.addEventListener("click", async (event) => {
+    const button = event.target.closest(".remove-item");
+
+    if (!button || button.disabled || cartOperationInProgress) return;
+
+    const itemId = button.dataset.itemId;
+
+    const removeButtons = Array.from(
+        document.querySelectorAll(".remove-item")
+    );
+
+    const currentIndex = removeButtons.indexOf(button);
+    const originalText = button.textContent;
+
+    cartOperationInProgress = true;
+    button.disabled = true;
+    button.textContent = "Removing…";
+
+    try {
+        const success = await deleteCartItem(itemId);
+
+        if (success) {
+            const remainingButtons =
+                document.querySelectorAll(".remove-item");
+
+            if (remainingButtons.length === 0) {
+                document.querySelector("#continue-shopping").focus();
+            } else {
+                const nextIndex = Math.min(
+                    currentIndex,
+                    remainingButtons.length - 1
+                );
+
+                remainingButtons[nextIndex].focus();
+            }
+        }
+    } finally {
+        cartOperationInProgress = false;
+
+        if (button.isConnected) {
+            button.disabled = false;
+            button.textContent = originalText;
+            button.focus();
+        }
+    }
 });

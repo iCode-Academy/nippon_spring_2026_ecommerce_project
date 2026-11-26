@@ -163,7 +163,7 @@ availability, line totals, and subtotal.
 |---|---|---|---|---|
 | GET | `/api/cart` | Retrieve the authenticated customer's cart | `200 OK` | `302` anonymous user, `403` access denied, `500` unexpected failure |
 | POST | `/api/cart/items` | Add a product to the authenticated customer's cart | `200 OK`, updated cart in the GET response format | `400` invalid request, `404` missing product, `409` unavailable/insufficient stock, `403` missing CSRF or forbidden account, `302` anonymous user |
-
+| DELETE | `/api/cart/items/{itemId}` | Remove an owned cart item | `200 OK`, updated cart | `404` missing, foreign, or already deleted item, `403` invalid/missing CSRF or forbidden account, `302` anonymous user with valid CSRF |
 ### Add an item (CAP-19)
 
 From the product detail, product list, or shop home page, *Add to cart* sends a JSON request without reloading the page. The detail page accepts a quantity; the list and home buttons add one. The page reads the CSRF token and header name from the layout's `_csrf` and `_csrf_header` meta tags and shows an accessible success or error message. An out-of-stock item has its add button disabled; the server always checks the latest stock and active state again.
@@ -181,6 +181,101 @@ X-CSRF-TOKEN: <token from the rendered page>
 Both fields are required and must be positive integers. The response is the updated cart (`cartId`, `items`, and `subtotal`, as shown below). If no cart exists, it is created on the first successful addition. Adding a product already in the cart increases its existing quantity rather than creating another item; the **combined** quantity must not exceed the product's current stock. Concurrent additions for the same customer are serialized. Cart additions do not reserve or decrease stock. The server derives cart ownership from the signed-in customer; the request cannot choose another user's cart.
 
 Invalid or missing fields return `400` with field errors. A nonexistent product returns `404`; an inactive or out-of-stock product, or a quantity exceeding stock, returns `409`. A disabled/deleted customer, an ADMIN, or a request without a valid CSRF token returns `403`. An anonymous request follows the existing sign-in redirect (`302` to `/login`). API errors returned by the controller follow the shared `ProblemDetail` format.
+
+### Remove a cart item (CAP-21)
+
+The cart page allows authenticated customers to remove
+individual cart items without reloading the page.
+The JavaScript client (`static/js/add-to-cart.js`) sends
+a DELETE request with the CSRF token from the shared layout.
+
+Example request:
+
+```http
+DELETE /api/cart/items/1
+Accept: application/json
+X-CSRF-TOKEN: <token from the rendered page>
+```
+
+The `itemId` path parameter identifies the cart item,
+not the associated product. No request body is required.
+
+A successful deletion returns `200 OK` with the updated
+cart in the existing `CartResponse` format.
+
+Example successful response:
+
+```json
+{
+  "cartId": 1,
+  "items": [
+    {
+      "id": 2,
+      "productId": 11,
+      "productName": "Pen",
+      "quantity": 3,
+      "unitPrice": 3.00,
+      "available": true,
+      "lineTotal": 9.00
+    }
+  ],
+  "subtotal": 9.00
+}
+```
+
+#### Deletion rules
+
+- Only authenticated customers with the `CUSTOMER` role
+  can delete cart items.
+- Cart ownership is resolved from the authenticated customer.
+- Customers cannot delete items belonging to another cart.
+- Missing, foreign, and already deleted items return
+  `404 Not Found`.
+- Repeated deletion does not modify other cart items.
+- Missing or invalid CSRF tokens return `403 Forbidden`.
+- Disabled or missing customer accounts and users without
+  the required role receive `403 Forbidden`.
+- Anonymous requests with valid CSRF tokens are redirected
+  to `/login`.
+- Unavailable products can still be removed from the cart.
+- Removing an item does not modify product stock.
+- The subtotal is recalculated on the server using
+  current product prices.
+
+#### Empty cart response
+
+Removing the last item preserves the existing cart record
+and returns an empty items array with a zero subtotal.
+
+```json
+{
+  "cartId": 1,
+  "items": [],
+  "subtotal": 0
+}
+```
+
+#### Frontend behavior
+
+- Removes the deleted row without reloading the page.
+- Updates the displayed cart subtotal using the API response.
+- Displays the empty cart state when the last item is removed.
+- Prevents overlapping cart quantity and deletion requests
+  within the same page.
+- Moves keyboard focus to the next remaining Remove button,
+  the previous button if necessary, or Continue shopping
+  when the cart becomes empty.
+- Displays accessible success and error messages.
+- Preserves the displayed cart on rejected requests and
+  restores the Remove button so the customer can retry.
+
+#### Automated deletion tests
+
+- `CartServiceTest`: Successful deletion, subtotal calculation,
+  last item deletion, ownership protection, and repeated deletion.
+- `CartApiControllerTest`: Database deletion, empty cart response,
+  foreign item protection, repeated deletion, missing and invalid
+  CSRF tokens, ADMIN access protection, and unauthenticated access.
 
 ### Retrieve current cart
 
@@ -298,7 +393,8 @@ The cart service and endpoint are covered by:
   authentication, authorization, cart ownership, current database
   prices, empty carts, availability, and error responses.
 
-This feature introduces no UI changes.
+CAP-18 introduces no UI changes. Cart item deletion
+and its associated UI behavior are documented under CAP-21.
 
 
 ## API Error Handling

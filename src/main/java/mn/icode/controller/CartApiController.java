@@ -1,20 +1,21 @@
 package mn.icode.controller;
 
-import org.springframework.security.core.Authentication;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import mn.icode.dto.CartResponse;
+import jakarta.validation.Valid;
 import mn.icode.dto.AddCartItemRequest;
+import mn.icode.dto.CartResponse;
 import mn.icode.dto.UpdateCartItemRequest;
 import mn.icode.service.CartService;
-import jakarta.validation.Valid;
 
 @RestController 
 @RequestMapping("/api/cart")
@@ -39,5 +40,10 @@ public class CartApiController {
     public CartResponse updateItemQuantity(@Valid @RequestBody UpdateCartItemRequest request,
                                            @PathVariable long itemId, Authentication authentication) {
         return cartService.updateItemQuantity(authentication.getName(), itemId, request.quantity());
+    }
+
+    @DeleteMapping("/items/{itemId}")
+    public CartResponse deleteItem(@PathVariable Long itemId, Authentication authentication) {
+        return cartService.deleteItem(authentication.getName(), itemId);
     }
 }

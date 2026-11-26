@@ -7,12 +7,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
@@ -33,6 +38,8 @@ import mn.icode.repository.UserRepository;
 @ActiveProfiles("postgres_test")
 @Transactional
 class CartApiControllerTest {
+
+        private static final String ITEMS_URL = "/api/cart/items";
 
         @Autowired
         private MockMvc mockMvc;
@@ -104,6 +111,104 @@ class CartApiControllerTest {
                 item.setQuantity(quantity);
 
                 return cartItemRepository.save(item);
+        }
+
+        private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder addItem(
+                        long productId, int quantity) {
+                return post(ITEMS_URL).with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"productId\":" + productId + ",\"quantity\":" + quantity + "}");
+        }
+
+        @Test
+        void firstAdditionCreatesCartAndReturnsUpdatedCart() throws Exception {
+                User customer = createCustomer("first-add@example.com");
+                Product product = createProduct("First notebook", "12.50", 3, true);
+
+                mockMvc.perform(addItem(product.getId(), 2).with(user(customer.getEmail()).roles("CUSTOMER")))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.items.length()").value(1))
+                                .andExpect(jsonPath("$.items[0].quantity").value(2))
+                                .andExpect(jsonPath("$.items[0].available").value(true))
+                                .andExpect(jsonPath("$.subtotal").value(25.00));
+                assertEquals(1, cartRepository.count());
+                assertEquals(1, cartItemRepository.count());
+                assertEquals(3, productRepository.findById(product.getId()).orElseThrow().getStockQuantity());
+        }
+
+        @Test
+        void duplicateAdditionMergesAndRejectsExcessWithoutChangingCart() throws Exception {
+                User customer = createCustomer("merge-add@example.com");
+                Product product = createProduct("Merge notebook", "8.00", 3, true);
+                var customerAuth = user(customer.getEmail()).roles("CUSTOMER");
+
+                mockMvc.perform(addItem(product.getId(), 1).with(customerAuth)).andExpect(status().isOk());
+                mockMvc.perform(addItem(product.getId(), 2).with(user(customer.getEmail()).roles("CUSTOMER")))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.items.length()").value(1))
+                                .andExpect(jsonPath("$.items[0].quantity").value(3))
+                                .andExpect(jsonPath("$.subtotal").value(24.00));
+                mockMvc.perform(addItem(product.getId(), 1).with(user(customer.getEmail()).roles("CUSTOMER")))
+                                .andExpect(status().isConflict());
+                assertEquals(1, cartItemRepository.count());
+                assertEquals(3, cartItemRepository.findAll().getFirst().getQuantity());
+        }
+
+        @Test
+        void invalidOrMissingFieldsDoNotCreateCart() throws Exception {
+                User customer = createCustomer("invalid-add@example.com");
+                for (String body : new String[] {
+                                "{}", "{\"productId\":1}", "{\"quantity\":1}", "{",
+                                "{\"productId\":0,\"quantity\":1}",
+                                "{\"productId\":1,\"quantity\":0}",
+                                "{\"productId\":1,\"quantity\":-2}",
+                                "{\"productId\":1,\"quantity\":2147483648}" }) {
+                        mockMvc.perform(post(ITEMS_URL).with(csrf()).with(user(customer.getEmail()).roles("CUSTOMER"))
+                                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                                        .andExpect(status().isBadRequest());
+                }
+                assertEquals(0, cartRepository.count());
+        }
+
+        @Test
+        void unavailableAndMissingProductsDoNotCreateCart() throws Exception {
+                User customer = createCustomer("unavailable-add@example.com");
+                Product inactive = createProduct("Inactive notebook", "10.00", 10, false);
+                Product empty = createProduct("Empty notebook", "10.00", 0, true);
+                Product limited = createProduct("Limited notebook", "10.00", 1, true);
+
+                for (long id : new long[] { inactive.getId(), empty.getId() }) {
+                        mockMvc.perform(addItem(id, 1).with(user(customer.getEmail()).roles("CUSTOMER")))
+                                        .andExpect(status().isConflict());
+                }
+                mockMvc.perform(addItem(limited.getId(), 2).with(user(customer.getEmail()).roles("CUSTOMER")))
+                                .andExpect(status().isConflict());
+                mockMvc.perform(addItem(9999999, 1).with(user(customer.getEmail()).roles("CUSTOMER")))
+                                .andExpect(status().isNotFound());
+                assertEquals(0, cartRepository.count());
+        }
+
+        @Test
+        void postRequiresCustomerAccountAndCsrf() throws Exception {
+                User customer = createCustomer("secured-add@example.com");
+                User inactive = createCustomer("inactive-add@example.com");
+                inactive.setEnabled(false);
+                userRepository.save(inactive);
+                Product product = createProduct("Secure notebook", "10.00", 5, true);
+
+                mockMvc.perform(addItem(product.getId(), 1))
+                                .andExpect(status().is3xxRedirection());
+                mockMvc.perform(addItem(product.getId(), 1).with(user("admin@example.com").roles("ADMIN")))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(post(ITEMS_URL).with(user(customer.getEmail()).roles("CUSTOMER"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"productId\":" + product.getId() + ",\"quantity\":1}"))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(addItem(product.getId(), 1).with(user(inactive.getEmail()).roles("CUSTOMER")))
+                                .andExpect(status().isForbidden());
+                mockMvc.perform(addItem(product.getId(), 1).with(user("deleted@example.com").roles("CUSTOMER")))
+                                .andExpect(status().isForbidden());
+                assertFalse(cartRepository.existsByUserId(customer.getId()));
         }
 
         @Test

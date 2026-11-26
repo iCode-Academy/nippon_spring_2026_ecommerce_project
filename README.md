@@ -150,6 +150,138 @@ Only active products can be opened. A missing or inactive product returns `404 N
 
 The two-column layout stacks on screens at or below `40rem`. Desktop and mobile screenshots for this page are stored in `docs/ui-evidence/product-detail-desktop.png` and `docs/ui-evidence/product-detail-mobile.png`.
 
+
+## Customer Cart REST API (CAP-18)
+
+The customer cart REST API allows authenticated customers to retrieve
+their own cart, including cart items, current product prices,
+availability, line totals, and subtotal.
+
+### Endpoints
+
+| Method | Endpoint | Description | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/cart` | Retrieve the authenticated customer's cart | `200 OK` | `302` anonymous user, `403` access denied, `500` unexpected failure |
+
+### Retrieve current cart
+
+Example request:
+
+```http
+GET /api/cart
+```
+
+Example successful response:
+
+```json
+{
+  "cartId": 1,
+  "items": [
+    {
+      "id": 1,
+      "productId": 10,
+      "productName": "Notebook",
+      "quantity": 2,
+      "unitPrice": 12.50,
+      "available": true,
+      "lineTotal": 25.00
+    },
+    {
+      "id": 2,
+      "productId": 11,
+      "productName": "Pen",
+      "quantity": 3,
+      "unitPrice": 3.00,
+      "available": true,
+      "lineTotal": 9.00
+    }
+  ],
+  "subtotal": 34.00
+}
+```
+
+### Response fields
+
+| Field | Description |
+|---|---|
+| `cartId` | ID of the authenticated customer's cart; null if no cart exists |
+| `items` | Cart items ordered by ID in ascending order |
+| `id` | Cart item ID |
+| `productId` | ID of the associated product |
+| `productName` | Current product name |
+| `quantity` | Quantity stored in the cart item |
+| `unitPrice` | Current product price from the database |
+| `available` | Whether the product is active and has sufficient stock |
+| `lineTotal` | Current unit price multiplied by quantity |
+| `subtotal` | Sum of all cart item line totals |
+
+### Pricing and availability rules
+
+- Product prices are retrieved from PostgreSQL.
+- All monetary calculations use `BigDecimal`.
+- Line totals are calculated as `unitPrice × quantity`.
+- The subtotal is calculated as the sum of all line totals.
+- Product price changes are reflected in subsequent cart requests.
+- A product is available only when it is active and its stock
+  quantity is greater than or equal to the cart item quantity.
+- Inactive products and products with insufficient stock remain
+  visible in the cart with `available: false`.
+- Unavailable items are included in the displayed subtotal.
+- Reading the cart does not modify product stock or reserve inventory.
+
+### Empty cart
+
+If the authenticated customer does not have a cart, the API returns
+`200 OK` with the following response:
+
+```json
+{
+  "cartId": null,
+  "items": [],
+  "subtotal": 0
+}
+```
+
+If an existing cart contains no items, its cart ID is returned with
+an empty items array and a subtotal of zero.
+
+A GET request does not automatically create a cart.
+
+### Access rules
+
+- The endpoint requires the `CUSTOMER` role.
+- The current customer is resolved from Spring Security authentication.
+- Cart ownership is determined on the server.
+- The endpoint does not accept user IDs or cart IDs as ownership selectors.
+- Supplied `userId` or `cartId` query parameters do not override
+  the authenticated customer.
+- Customers cannot retrieve another customer's cart.
+- Anonymous users are redirected to `/login`.
+- Users without the required role receive `403 Forbidden`.
+
+### Error handling
+
+- `302 Found`: Unauthenticated request redirected to `/login`.
+- `403 Forbidden`: Insufficient permissions or the authenticated
+  customer's account no longer exists.
+- `500 Internal Server Error`: Unexpected server failure.
+
+Exceptions handled by the controller use the shared `ProblemDetail`
+format documented in the API Error Handling section below.
+
+### Automated tests
+
+The cart service and endpoint are covered by:
+
+- `CartServiceTest`: Unit tests for cart retrieval, pricing,
+  availability, subtotal calculation, empty carts, and missing customers.
+- `CartApiControllerTest`: PostgreSQL integration tests for
+  authentication, authorization, cart ownership, current database
+  prices, empty carts, availability, and error responses.
+
+This feature introduces no UI changes.
+
+
 ## API Error Handling
 
 The API uses Spring `ProblemDetail` responses for consistent error handling.

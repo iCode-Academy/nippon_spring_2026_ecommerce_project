@@ -650,6 +650,110 @@ cart deletion fails. Run the integration tests with:
 
 This service-only change does not add a checkout HTTP endpoint or UI.
 
+## Customer Order Cancellation (CAP-27)
+
+Customers can cancel their own orders before shipment.
+Cancellation restores purchased quantities to inventory
+within a single database transaction.
+
+### Cancellation Eligibility
+
+| Order Status | Cancellation Allowed |
+|---|---|
+| PENDING | Yes |
+| CONFIRMED | Yes |
+| SHIPPED | No |
+| DELIVERED | No |
+| CANCELLED | No |
+
+Cancellation eligibility is centralized in
+`OrderStatus.isCancellable()`.
+
+### REST API
+
+POST /api/orders/{id}/cancel
+
+Requirements:
+- Authenticated customer account.
+- Enabled customer account.
+- Ownership of the requested order.
+- Valid CSRF token.
+- Eligible order status.
+
+No request body is required.
+
+| HTTP Status | Description |
+|---|---|
+| 204 No Content | Order cancelled successfully |
+| 403 Forbidden | Unauthorized role, disabled account, or invalid CSRF token |
+| 404 Not Found | Order does not exist or belongs to another customer |
+| 409 Conflict | Ineligible status, repeated cancellation, or inventory restoration failure |
+
+Unauthenticated requests with valid CSRF tokens redirect
+to the login page.
+
+The order detail API also exposes a `cancellable` boolean
+indicating whether the current order status allows cancellation.
+
+### Web UI
+
+POST /orders/{id}/cancel
+
+The customer order detail page displays a Cancel Order
+button only for eligible orders.
+
+- Confirmation is required before submitting cancellation.
+- Successful cancellation redirects to the order detail
+  page with a success message.
+- Failed cancellation displays an error message.
+- Cancelled orders remain visible in order history.
+- The cancellation button is hidden for ineligible orders.
+
+### Inventory Restoration and Transaction Safety
+
+- Cancellation executes within a single transaction.
+- Customer, order, and product records are protected
+  using pessimistic write locks.
+- Products are locked in ascending product ID order.
+- Purchased quantities are restored to current inventory.
+- Inactive products remain inactive after restoration.
+- Missing products and stock overflow cause cancellation
+  to fail.
+- Inventory changes are rolled back if restoration fails.
+- Repeated and concurrent cancellation requests cannot
+  restore inventory more than once.
+- Historical order items, prices, totals, and shipping
+  snapshots remain unchanged.
+- Cancellation does not return products to the shopping cart.
+
+### Existing Order Compatibility
+
+Inventory restoration assumes that cancellable orders
+were created using the CAP-25 inventory decrement workflow.
+
+Existing orders created before CAP-25 must be checked
+before enabling cancellation in environments containing
+legacy order data.
+
+### Automated Tests
+
+```bash
+./mvnw test -Dtest=OrderServiceTest,OrderCancellationIntegrationTest,OrderApiControllerTest,OrderPageControllerTest
+```
+
+Test coverage includes:
+
+- Eligible and ineligible order statuses.
+- Customer ownership and authorization.
+- Multiple product inventory restoration.
+- Repeated and concurrent cancellation.
+- Inactive and missing products.
+- Stock overflow protection.
+- Transactional rollback.
+- REST API response codes.
+- Web UI visibility and feedback.
+- CSRF protection.
+
 ## API Error Handling
 
 The API uses Spring `ProblemDetail` responses for consistent error handling.

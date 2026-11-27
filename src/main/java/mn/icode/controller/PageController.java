@@ -43,10 +43,10 @@ public class PageController {
     private OrderService orderService;
 
     public PageController(ProductRepository productRepository,
-                          OrderRepository orderRepository,
-                          UserRepository userRepository,
-                          UserService userService,
-                          CartService cartService) {
+            OrderRepository orderRepository,
+            UserRepository userRepository,
+            UserService userService,
+            CartService cartService) {
         this.productRepository = productRepository;
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
@@ -74,9 +74,9 @@ public class PageController {
 
     @PostMapping("/register")
     public String register(@Valid @ModelAttribute("registration") RegistrationRequest form,
-                           BindingResult bindingResult,
-                           Model model,
-                           RedirectAttributes redirectAttributes) {
+            BindingResult bindingResult,
+            Model model,
+            RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
             return "register";
         }
@@ -148,5 +148,27 @@ public class PageController {
         } catch (ResourceNotFoundException e) {
             return "error/404";
         }
+    }
+
+    @PostMapping("/orders/{id}/cancel")
+    public String cancelOrder(
+            @PathVariable Long id,
+            RedirectAttributes redirectAttributes) {
+
+        try {
+            orderService.cancelOrder(id);
+
+            redirectAttributes.addFlashAttribute(
+                    "flashSuccess",
+                    "Order cancelled successfully.");
+
+        } catch (ConflictException e) {
+
+            redirectAttributes.addFlashAttribute(
+                    "flashError",
+                    e.getMessage());
+        }
+
+        return "redirect:/orders/" + id;
     }
 }

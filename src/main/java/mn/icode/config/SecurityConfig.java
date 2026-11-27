@@ -18,56 +18,58 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    @Bean 
+    @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
-        throws Exception {
-            return authenticationConfiguration.getAuthenticationManager();
-        }
+            throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/api/auth/**")
-            )
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/",
-                                 "/login",
-                                 "/register",
-                                 "/logout",
-                                  "/css/**",
-                                  "/js/**",
-                                  "/images/**",
-                                  "/favicon.ico",
-                                 "/error",
-                                 "/api/auth/register",
-                                 "/api/auth/login",
-                                 "/api/auth/logout",
-                                 "/api/auth/status").permitAll()
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/cart").hasRole("CUSTOMER")
-                .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/cart").hasRole("CUSTOMER")
-                .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/*").hasRole("CUSTOMER")
-                .requestMatchers(HttpMethod.GET, "/orders", "/orders/*").hasRole("CUSTOMER")
-                .requestMatchers(HttpMethod.POST, "/api/cart/items").hasRole("CUSTOMER")
-                .requestMatchers(HttpMethod.PATCH, "/api/cart/items/**").hasRole("CUSTOMER")
-                .requestMatchers(HttpMethod.DELETE, "/api/cart/items/**").hasRole("CUSTOMER")
-                .anyRequest().authenticated()
-            )
-            .formLogin(form -> form
-                .loginPage("/login")
-                .loginProcessingUrl("/login")
-                .permitAll()
-                .defaultSuccessUrl("/home", true)
-                .failureUrl("/login?error")
-            )
-            .logout(logout -> logout
-                .logoutUrl("/logout")
-                .logoutSuccessUrl("/login?logout")
-                .permitAll()
-            );
+                .csrf(csrf -> csrf
+                        .ignoringRequestMatchers("/api/auth/**"))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/",
+                                "/login",
+                                "/register",
+                                "/logout",
+                                "/css/**",
+                                "/js/**",
+                                "/images/**",
+                                "/favicon.ico",
+                                "/error",
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/auth/logout",
+                                "/api/auth/status")
+                        .permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/cart").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/cart").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.GET, "/api/orders", "/api/orders/*").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.GET, "/orders", "/orders/*").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.POST, "/api/cart/items").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.PATCH, "/api/cart/items/**").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/cart/items/**").hasRole("CUSTOMER")
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/orders/*/cancel",
+                                "/orders/*/cancel")
+                        .hasRole("CUSTOMER")
+                        .anyRequest().authenticated())
+                .formLogin(form -> form
+                        .loginPage("/login")
+                        .loginProcessingUrl("/login")
+                        .permitAll()
+                        .defaultSuccessUrl("/home", true)
+                        .failureUrl("/login?error"))
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("/login?logout")
+                        .permitAll());
 
         return http.build();
     }

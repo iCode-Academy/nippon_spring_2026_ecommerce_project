@@ -1334,3 +1334,9 @@ input.input-invalid {
         padding: 0.5rem 0.75rem;
     }
 }
+
+/* Order cancellation (CAP-27) */
+.order-actions {
+    margin-top: 16px;
+    margin-bottom: 24px;
+}

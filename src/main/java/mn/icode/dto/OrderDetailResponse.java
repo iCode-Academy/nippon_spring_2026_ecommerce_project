@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
+import mn.icode.model.OrderStatus;
 /**
  * DTO for full order detail view.
  * All order item fields are immutable snapshots captured at purchase time.
@@ -57,4 +58,8 @@ public class OrderDetailResponse {
     public BigDecimal getTotal() { return total; }
     public Integer getItemCount() { return itemCount; }
     public List<OrderItemSummary> getItems() { return items; }
+
+    public boolean isCancellable() {
+        return status != null && OrderStatus.valueOf(status).isCancellable();
+    }
 }

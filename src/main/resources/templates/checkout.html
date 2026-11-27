@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments/layout :: head('Checkout')}"></head>
+
+<body>
+
+<header th:replace="~{fragments/layout :: nav}"></header>
+
+<main id="main" class="container">
+
+    <div th:replace="~{fragments/layout :: flash}"></div>
+
+    <section aria-label="Checkout" class="checkout-page">
+
+        <div class="card">
+            <h1>Checkout</h1>
+
+            <!-- Validation Error Summary -->
+            <div th:if="${validationErrors != null and !validationErrors.isEmpty()}" class="alert alert-danger">
+                <strong>Please fix the following errors:</strong>
+                <ul>
+                    <li th:each="error : ${validationErrors}" th:text="${error}"></li>
+                </ul>
+            </div>
+
+            <!-- Cart Summary -->
+            <div th:if="${cart.items.isEmpty()}" class="card empty-state">
+                <p>Your cart is empty. Add items to your cart before checkout.</p>
+                <a th:href="@{/products}" class="btn btn-primary">Continue shopping</a>
+            </div>
+
+            <div th:unless="${cart.items.isEmpty()}" class="cart-items table-wrap">
+                <table class="cart-table">
+                    <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>Subtotal</th>
+                        <th>&nbsp;</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="item : ${cart.items}" th:data-available="${item.available}">
+                        <td class="product-name" data-label="Product">
+                            <a th:href="@{/products/{id}(id=${item.productId})}" th:text="${item.productName}">Product name</a>
+                            <span class="cart-warning" th:if="${!item.available}">
+                                Unavailable: inactive or insufficient stock.
+                            </span>
+                        </td>
+                        <td class="product-price" data-label="Price" th:text="${#numbers.formatDecimal(item.unitPrice, 1, 2)}">$0.00</td>
+                        <td class="product-quantity" data-label="Quantity">
+                            <div class="quantity-control">
+                                <button type="button" class="quantity-btn minus" th:data-item-id="${item.id}" th:aria-label="|Decrease quantity of ${item.productName}|" th:disabled="${item.quantity <= 1 or !item.available}">−</button>
+                                <input type="number" min="1" step="1"
+                                       value="${item.quantity}"
+                                       th:value="${item.quantity}"
+                                       readonly
+                                       class="quantity-input"
+                                       th:data-item-id="${item.id}"
+                                       required>
+                                <button type="button" class="quantity-btn plus" th:data-item-id="${item.id}" th:aria-label="|Increase quantity of ${item.productName}|" th:disabled="${!item.available}">+</button>
+                            </div>
+                        </td>
+                        <td class="product-subtotal" data-label="Subtotal" th:text="${#numbers.formatDecimal(item.lineTotal, 1, 2)}">$0.00</td>
+                        <td class="product-actions" data-label="Action">
+                            <button type="button" class="btn btn-link text-danger remove-item" th:data-item-id="${item.id}" th:aria-label="|Remove ${item.productName} from cart|">Remove</button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Delivery Address Selection -->
+            <div class="card" th:if="${cart.items.isEmpty()} == false">
+                <h3>Delivery Address</h3>
+                <p>Select a delivery address from your owned addresses:</p>
+
+                <form th:action="@{/checkout}" method="post" th:object="${checkoutRequest}" class="form-card">
+                    <div class="field">
+                        <label for="deliveryAddress">Delivery Address</label>
+                        <select id="deliveryAddress" name="deliveryAddressId" class="form-select" required>
+                            <option value="">-- Select an address --</option>
+                            <option th:each="address : ${addresses}"
+                                    th:value="${address.id}"
+                                    th:text="${address.title} + ', ' + ${address.city} + ', ' + ${address.district}"
+                                    th:selected="*{deliveryAddressId} == ${address.id}">
+                            </option>
+                        </select>
+                        <div class="error" th:if="${#fields.hasErrors('deliveryAddressId')}" th:errors="*{deliveryAddressId}">Invalid address</div>
+                    </div>
+
+                    <input type="hidden" th:field="*{deliveryAddressId}"/>
+
+                    <button type="submit" class="btn btn-primary btn-block">Proceed to Checkout</button>
+                </form>
+
+                <hr/>
+
+                <a th:href="@{/addresses}" class="btn btn-link">Manage addresses</a>
+            </div>
+
+        </div>
+
+    </section>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<script th:src="@{/js/add-to-cart.js}" defer></script>
+
+</body>
+</html>

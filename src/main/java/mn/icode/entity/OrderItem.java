@@ -16,50 +16,57 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "order_items")
 public class OrderItem {
-	
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	
+
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "order_id", nullable = false)
+	@JoinColumn(name = "order_id", nullable = false, updatable = false)
 	private Order order;
-	
-	@Column(name = "product_id", nullable = false)
+
+	@Column(name = "product_id", nullable = false, updatable = false)
 	private Long productId;
-	
-	@Column(name = "product_name", nullable = false)
+
+	@Column(name = "product_name", nullable = false, updatable = false)
 	private String productName;
-	
-	@Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
+
+	@Column(name = "unit_price", nullable = false, precision = 12, scale = 2, updatable = false)
 	private BigDecimal unitPrice;
-	
-	@Column(name = "line_total", nullable = false, precision = 12, scale = 2)
+
+	@Column(name = "line_total", nullable = false, precision = 12, scale = 2, updatable = false)
 	private BigDecimal lineTotal;
-	
-	@Column(nullable = false)
+
+	@Column(nullable = false, updatable = false)
 	private int quantity;
-	
+
 	public OrderItem() {
-		
+
 	}
-	
+
 	public static OrderItem from(Product p, int qty) {
-        if (p == null) throw new IllegalArgumentException("Product is required");
-        if (qty <= 0) throw new IllegalArgumentException("Quantity must be positive");
- 
-        OrderItem i = new OrderItem();
-        i.productId = p.getId();
-        i.productName = p.getName();
-        i.unitPrice = p.getPrice();
-        i.quantity = qty;
-        i.lineTotal = p.getPrice()
-                .multiply(BigDecimal.valueOf(qty))
-                .setScale(2, RoundingMode.HALF_UP);
-        return i;
+		if (p == null)
+			throw new IllegalArgumentException("Product is required");
+		if (qty <= 0)
+			throw new IllegalArgumentException("Quantity must be positive");
+
+		OrderItem i = new OrderItem();
+		i.productId = p.getId();
+		i.productName = p.getName();
+		i.unitPrice = p.getPrice();
+		i.quantity = qty;
+		i.lineTotal = p.getPrice()
+				.multiply(BigDecimal.valueOf(qty))
+				.setScale(2, RoundingMode.HALF_UP);
+		return i;
 	}
 
 	void setOrder(Order order) {
+		if (id != null) {
+			throw new IllegalStateException(
+					"Persisted order items cannot be modified");
+		}
+
 		this.order = order;
 	}
 

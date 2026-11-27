@@ -118,7 +118,7 @@ public class ProductServiceTest {
                                 20,
                                 true);
 
-                when(productRepository.findById(1L))
+                when(productRepository.findByIdForUpdate(1L))
                                 .thenReturn(Optional.of(existingProduct));
 
                 when(categoryRepository.findById(1L))
@@ -154,7 +154,7 @@ public class ProductServiceTest {
                 // Arrange
                 Long productId = 999L;
 
-                when(productRepository.findById(productId))
+                when(productRepository.findByIdForUpdate(productId))
                                 .thenReturn(Optional.empty());
 
                 // Act & Assert
@@ -178,7 +178,7 @@ public class ProductServiceTest {
                 Product product = new Product(category, "Test Product", "Description", new BigDecimal("10.00"), 5,
                                 true);
 
-                when(productRepository.findById(1L))
+                when(productRepository.findByIdForUpdate(1L))
                                 .thenReturn(Optional.of(product));
 
                 // Act & Assert: Adjusting stock by -10 should throw IllegalArgumentException

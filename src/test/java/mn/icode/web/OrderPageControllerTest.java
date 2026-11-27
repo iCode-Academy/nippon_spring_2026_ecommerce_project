@@ -25,7 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 import mn.icode.config.SecurityConfig;
-import mn.icode.controller.OrderPageController;
+import mn.icode.controller.PageController;
 import mn.icode.dto.OrderDetailResponse;
 import mn.icode.dto.OrderItemSummary;
 import mn.icode.dto.OrderResponse;
@@ -33,9 +33,11 @@ import mn.icode.exception.ResourceNotFoundException;
 import mn.icode.repository.OrderRepository;
 import mn.icode.repository.ProductRepository;
 import mn.icode.repository.UserRepository;
+import mn.icode.service.CartService;
 import mn.icode.service.OrderService;
+import mn.icode.service.UserService;
 
-@WebMvcTest(controllers = OrderPageController.class)
+@WebMvcTest(controllers = PageController.class)
 @Import({SecurityConfig.class, ServletWebSecurityAutoConfiguration.class})
 class OrderPageControllerTest {
 
@@ -53,6 +55,12 @@ class OrderPageControllerTest {
 
     @MockitoBean
     private UserRepository userRepository;
+
+    @MockitoBean
+    private UserService userService;
+
+    @MockitoBean
+    private CartService cartService;
 
     @Test
     void orderHistory_unauthenticated_redirectsToLogin() throws Exception {

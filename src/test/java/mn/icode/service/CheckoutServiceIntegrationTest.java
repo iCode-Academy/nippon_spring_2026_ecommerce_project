@@ -4,6 +4,11 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -294,6 +299,117 @@ class CheckoutServiceIntegrationTest {
             assertTrue(cartItemRepository
                     .findByCartOrderByIdAsc(remainingCart)
                     .isEmpty());
+            assertEquals(8, productRepository.findById(notebook.getId()).orElseThrow().getStockQuantity());
+            assertEquals(7, productRepository.findById(pen.getId()).orElseThrow().getStockQuantity());
+        });
+    }
+
+    @Test
+    void checkout_onlyOneCustomerCanBuyTheLastUnit() throws Exception {
+        User first = createCustomer();
+        User second = createCustomer();
+        Address firstAddress = createAddress(first);
+        Address secondAddress = createAddress(second);
+        Cart firstCart = createCart(first);
+        Cart secondCart = createCart(second);
+        Product product = createProduct("Last unit", "12.50", 1, true);
+        createCartItem(firstCart, product, 1);
+        createCartItem(secondCart, product, 1);
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Boolean> firstResult = executor.submit(() -> attemptCheckout(first, firstAddress, ready, start));
+            Future<Boolean> secondResult = executor.submit(() -> attemptCheckout(second, secondAddress, ready, start));
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+            boolean firstSucceeded = firstResult.get(20, TimeUnit.SECONDS);
+            boolean secondSucceeded = secondResult.get(20, TimeUnit.SECONDS);
+            assertTrue(firstSucceeded ^ secondSucceeded);
+
+            transactionTemplate.executeWithoutResult(status -> {
+                assertEquals(0, productRepository.findById(product.getId()).orElseThrow().getStockQuantity());
+                assertEquals(firstSucceeded ? 1 : 0,
+                        orderRepository.findByUserIdOrderByCreatedAtDesc(first.getId()).size());
+                assertEquals(secondSucceeded ? 1 : 0,
+                        orderRepository.findByUserIdOrderByCreatedAtDesc(second.getId()).size());
+                assertEquals(firstSucceeded ? 0 : 1, cartItemRepository.findByCartOrderByIdAsc(firstCart).size());
+                assertEquals(secondSucceeded ? 0 : 1, cartItemRepository.findByCartOrderByIdAsc(secondCart).size());
+            });
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void checkout_oppositeCartOrderLocksProductsInTheSameOrder() throws Exception {
+        User first = createCustomer();
+        User second = createCustomer();
+        Address firstAddress = createAddress(first);
+        Address secondAddress = createAddress(second);
+        Cart firstCart = createCart(first);
+        Cart secondCart = createCart(second);
+        Product smallerId = createProduct("First", "12.50", 2, true);
+        Product largerId = createProduct("Second", "3.00", 2, true);
+        createCartItem(firstCart, smallerId, 1);
+        createCartItem(firstCart, largerId, 1);
+        createCartItem(secondCart, largerId, 1);
+        createCartItem(secondCart, smallerId, 1);
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Boolean> firstResult = executor.submit(() -> attemptCheckout(first, firstAddress, ready, start));
+            Future<Boolean> secondResult = executor.submit(() -> attemptCheckout(second, secondAddress, ready, start));
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+            assertTrue(firstResult.get(20, TimeUnit.SECONDS));
+            assertTrue(secondResult.get(20, TimeUnit.SECONDS));
+            transactionTemplate.executeWithoutResult(status -> {
+                assertEquals(0, productRepository.findById(smallerId.getId()).orElseThrow().getStockQuantity());
+                assertEquals(0, productRepository.findById(largerId.getId()).orElseThrow().getStockQuantity());
+            });
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    private boolean attemptCheckout(User customer, Address address,
+            CountDownLatch ready, CountDownLatch start) throws InterruptedException {
+        ready.countDown();
+        if (!start.await(10, TimeUnit.SECONDS)) {
+            throw new IllegalStateException("Concurrent checkout did not start");
+        }
+        try {
+            checkoutService.checkout(customer.getEmail(), address.getId());
+            return true;
+        } catch (ConflictException expected) {
+            return false;
+        }
+    }
+
+    @Test
+    void checkout_failedSecondProductRestoresEarlierStockAndCart() {
+        User customer = createCustomer();
+        Address address = createAddress(customer);
+        Cart cart = createCart(customer);
+        Product first = createProduct("Available", "12.50", 5, true);
+        Product second = createProduct("Sold out", "3.00", 1, true);
+        // Reverse cart insertion order: product locks must still follow product IDs.
+        createCartItem(cart, second, 2);
+        createCartItem(cart, first, 2);
+
+        assertThrows(ConflictException.class,
+                () -> checkoutService.checkout(customer.getEmail(), address.getId()));
+
+        assertCheckoutUnchanged(customer, cart, 2);
+        transactionTemplate.executeWithoutResult(status -> {
+            assertEquals(5, productRepository.findById(first.getId()).orElseThrow().getStockQuantity());
+            assertEquals(1, productRepository.findById(second.getId()).orElseThrow().getStockQuantity());
         });
     }
 
@@ -849,7 +965,7 @@ void checkout_rollsBackOrderAndCartDeletionWhenTransactionFails() {
 }
 
 @Test
-void checkout_rollsBackWhenCartDeletionFails() {
+    void checkout_rollsBackWhenCartDeletionFails() {
 
     // Arrange
     User customer = createCustomer();
@@ -896,6 +1012,7 @@ assertEquals(
 
     // Assert
     assertCheckoutUnchanged(customer, cart, 1);
+    assertEquals(10, productRepository.findById(product.getId()).orElseThrow().getStockQuantity());
 
     transactionTemplate.executeWithoutResult(status -> {
 

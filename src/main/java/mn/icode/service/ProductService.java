@@ -127,7 +127,7 @@ public class ProductService {
 
     @Transactional 
     public Product update(Long id, ProductForm form) {
-        Product product = findById(id);
+        Product product = findByIdForUpdate(id);
         Category category = findCategory(form.getCategoryId());
 
         product.setCategory(category);
@@ -142,14 +142,14 @@ public class ProductService {
 
     @Transactional 
     public void toggleActiveStatus(Long id) {
-        Product product = findById(id);
+        Product product = findByIdForUpdate(id);
         product.setActive(!product.isActive());
         productRepository.save(product);
     }
 
     @Transactional
     public void adjustStock(Long id, int quantity) {
-        Product product = findById(id);
+        Product product = findByIdForUpdate(id);
 
         int newStock = product.getStockQuantity() + quantity;
         if (newStock < 0) {
@@ -157,6 +157,11 @@ public class ProductService {
         }
         product.setStockQuantity(newStock);
         productRepository.save(product);
+    }
+
+    private Product findByIdForUpdate(Long id) {
+        return productRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
     }
 
     private Category findCategory(Long categoryId) {

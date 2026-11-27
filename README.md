@@ -445,6 +445,7 @@ Client-provided prices, subtotals, and totals are not accepted.
 - Every product in the cart must be active.
 - Every cart item quantity must be positive.
 - Every cart item quantity must be within current available stock.
+- Stock is checked and decremented while holding a database row lock on each product.
 - All validation rules are checked again during order creation.
 - If any cart item is invalid, the entire checkout is rejected.
 - Newly created orders have the `PENDING` status.
@@ -525,11 +526,11 @@ The checkout operation performs the following steps:
 1. Resolve and lock the customer account.
 2. Retrieve the customer's cart and cart items.
 3. Retrieve and validate the owned delivery address.
-4. Validate product availability and quantities.
+4. Lock products in ascending product ID order, then validate availability and quantities.
 5. Create the order and delivery address snapshot.
 6. Create order item snapshots.
 7. Calculate the subtotal and total.
-8. Persist the order and associated order items.
+8. Decrement stock and persist the order and associated order items.
 9. Delete the purchased cart items.
 10. Commit the transaction.
 
@@ -550,9 +551,14 @@ and deleted cart items are restored.
 - Repeating checkout after the cart has been cleared is rejected
   because the cart is empty.
 
-Checkout validates current stock but does not reserve or
-decrease inventory. Concurrent product or inventory updates
-are not serialized by the customer-row lock.
+Product rows are locked in ascending product ID order during checkout, and
+stock is decremented in the same transaction as order creation and cart
+clearing. Inventory and product edits use the same product-row lock. Two
+customers competing for the last unit cannot both succeed: the second
+checkout sees the committed stock and receives a conflict. A failed
+checkout restores all stock decrements, leaves the cart intact, and does
+not create an order. The preflight checkout validation is informational;
+the locked service check is authoritative under concurrency.
 
 ### Failure handling
 
@@ -563,7 +569,7 @@ The checkout service uses the project's existing exception types.
 | `IllegalArgumentException` | Missing or invalid delivery address ID | `400 Bad Request` |
 | `AccessDeniedException` | Missing, disabled, or unauthorized customer account | `403 Forbidden` |
 | `ResourceNotFoundException` | Missing or foreign delivery address | `404 Not Found` |
-| `ConflictException` | Empty cart, incomplete address, inactive product, invalid quantity, or insufficient stock | `409 Conflict` |
+| `ConflictException` | Empty cart, incomplete address, inactive product, invalid quantity, or insufficient stock (including concurrent purchases) | `409 Conflict` |
 | Unexpected exception | Database or internal failure | `500 Internal Server Error` |
 
 Failed checkout operations do not create partial orders or
@@ -571,13 +577,14 @@ permanently clear cart items.
 
 ### Automated tests
 
-`CheckoutServiceIntegrationTest` contains 26 PostgreSQL
+`CheckoutServiceIntegrationTest` contains 29 PostgreSQL
 integration tests covering:
 
 - Successful order and order item persistence.
 - Server-side subtotal and total calculations.
 - Delivery address snapshot persistence.
-- Cart clearing and preservation of the cart record.
+- Cart clearing, stock decrement, and preservation of the cart record.
+- Concurrent checkouts for the last unit, opposite cart order, and rollback of earlier decrements when a later product fails.
 - Protection of other customers' carts.
 - Missing and empty carts.
 - Missing, invalid, foreign, and incomplete delivery addresses.
@@ -620,6 +627,28 @@ of this implementation.
 
 No additional mobile or desktop screenshots are required
 because CAP-24 introduces no UI changes.
+
+## Concurrent Checkout Inventory (CAP-25)
+
+Checkout acquires pessimistic write locks on product rows in ascending
+product ID order. Because cart items eagerly load products, the locked
+products are refreshed from the database before stock and price checks.
+Each successful checkout decrements stock within the same transaction as
+order persistence and cart clearing. Product edits and inventory adjustments
+also acquire a product-row lock before changing the record.
+
+If the stock is insufficient or a product becomes inactive, checkout throws
+`ConflictException` (HTTP 409 for API callers). All prior stock changes in
+that checkout roll back along with the order and cart changes. Concurrent
+customers competing for the final unit are covered by a PostgreSQL
+integration test, as are multi-product rollback and stock restoration after
+cart deletion fails. Run the integration tests with:
+
+```bash
+./mvnw -Dtest=CheckoutServiceIntegrationTest test
+```
+
+This service-only change does not add a checkout HTTP endpoint or UI.
 
 ## API Error Handling
 

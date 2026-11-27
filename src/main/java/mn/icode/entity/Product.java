@@ -77,6 +77,18 @@ public class Product {
         this.stockQuantity -= quantity;
     }
 
+    public void increaseStock(int quantity) {
+        if(quantity <= 0) {
+            throw new IllegalArgumentException("Stock increase must be positive");
+        }
+
+        if(quantity > Integer.MAX_VALUE - this.stockQuantity) {
+            throw new IllegalArgumentException("Stock quantity exceeds maximum allowed value");
+        }
+
+        this.stockQuantity += quantity;
+    }
+
     public Long getId() {
         return id;
     }

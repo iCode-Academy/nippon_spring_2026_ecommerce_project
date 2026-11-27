@@ -28,6 +28,25 @@ needs to apply this manually once. Steps below (as of 2026):
 - Try pushing a commit directly to `main` locally — it should be rejected.
 - Open a PR without any tests changed — CI should still run and the merge
   button should stay disabled until it's green and approved.
+
+## CAP-26: Customer Order Inspection Endpoints
+
+New REST API and Thymeleaf UI endpoints implemented for CAP-26 (EPIC-ORD #4):
+
+- `GET /api/orders` — Returns paginated list of the authenticated customer's orders
+  with deterministic ordering (`createdAt DESC, id DESC`). Requires `CUSTOMER` role.
+- `GET /api/orders/{id}` — Returns full order details including immutable order item
+  snapshots for the authenticated customer's order. Guessed or foreign order IDs
+  return 404 Not Found. Requires `CUSTOMER` role.
+- `GET /orders` — Customer order history page with pagination controls and empty-state
+  handling when the customer has no orders. Requires `CUSTOMER` role.
+- `GET /orders/{id}` — Customer order detail page displaying order metadata, delivery
+  snapshot/details, and all immutable line-item snapshots (product name/title at purchase
+  time, unit price at purchase time, quantity, line totals, order total). Foreign or
+  non-existent order IDs return 404 Not Found. Requires `CUSTOMER` role.
+
+All order responses read exclusively from stored snapshot fields so that subsequent
+edits to mutable Product records never alter displayed order history or detail data.
 - Have the PR author try to approve their own PR — GitHub should not allow
   it to count as the required approval.
 

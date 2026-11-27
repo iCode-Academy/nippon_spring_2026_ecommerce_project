@@ -31,11 +31,13 @@
             </thead>
             <tbody>
                 <tr th:each="order : ${orders}">
-                    <td th:text="'#' + ${order.id}">#1</td>
+                    <td>
+                        <a th:href="@{/orders/{id}(id=${order.id})}" th:text="'#' + ${order.id}">#1</a>
+                    </td>
                     <td th:text="${order.createdAt}">2026-01-01</td>
                     <td>
                         <span class="badge"
-                              th:classappend="${order.status.name() == 'CANCELLED'} ? 'badge-warn' : 'badge-ok'"
+                              th:classappend="${order.status.toString() == 'CANCELLED'} ? 'badge-warn' : 'badge-ok'"
                               th:text="${order.status}">PENDING</span>
                     </td>
                     <td th:text="${#lists.size(order.items)}">0</td>
@@ -43,10 +45,19 @@
                 </tr>
             </tbody>
         </table>
+
+        <nav th:if="${page != null and page.totalPages > 1}" class="pagination" aria-label="Order history pages">
+            <a th:if="${page.hasPrevious()}"
+               class="btn btn-ghost"
+               th:href="@{/orders(page=${page.number - 1}, size=${page.size})}">Previous</a>
+            <span th:text="'Page ' + (${page.number + 1}) + ' of ' + ${page.totalPages}">Page 1 of 1</span>
+            <a th:if="${page.hasNext()}"
+               class="btn btn-ghost"
+               th:href="@{/orders(page=${page.number + 1}, size=${page.size})}">Next</a>
+        </nav>
     </div>
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 </body>
-
 </html>

@@ -407,6 +407,219 @@ The cart service and endpoint are covered by:
 CAP-18 introduces no UI changes. Cart item deletion
 and its associated UI behavior are documented under CAP-21.
 
+## Transactional Order Creation and Snapshots (CAP-24)
+
+The checkout service creates an order, order item snapshots,
+and a delivery address snapshot in a single database transaction.
+Cart items are cleared only as part of a successful checkout.
+
+### Service contract
+
+Order creation is implemented in `CheckoutService`:
+
+```java
+Order checkout(String email, Long deliveryAddressId)
+```
+
+| Parameter | Description |
+|---|---|
+| `email` | Customer email supplied by the authenticated application context |
+| `deliveryAddressId` | ID of a delivery address owned by the customer |
+| Return value | Created `Order` with its generated ID and snapshots |
+
+The service resolves the customer, cart, products, and delivery
+address from PostgreSQL. The caller must supply the authenticated
+customer's email rather than an arbitrary client-provided identity.
+
+Client-provided prices, subtotals, and totals are not accepted.
+
+### Checkout rules
+
+- The customer account must exist, be enabled, and have the
+  `CUSTOMER` role.
+- The delivery address ID must be a positive integer.
+- The delivery address must belong to the customer.
+- The delivery address must contain a nonblank city, district,
+  address line, and phone number.
+- The customer must have a nonempty cart.
+- Every product in the cart must be active.
+- Every cart item quantity must be positive.
+- Every cart item quantity must be within current available stock.
+- All validation rules are checked again during order creation.
+- If any cart item is invalid, the entire checkout is rejected.
+- Newly created orders have the `PENDING` status.
+
+### Server-side pricing
+
+All monetary calculations use `BigDecimal`.
+
+- Unit prices are retrieved from current product records.
+- Line totals are calculated as `unitPrice × quantity`.
+- Line totals are rounded to two decimal places using
+  `RoundingMode.HALF_UP`.
+- The subtotal is calculated as the sum of all order item line totals.
+- The order total equals the subtotal.
+- Taxes, discounts, and delivery fees are not implemented in CAP-24.
+
+Example calculation:
+
+| Product | Unit price | Quantity | Line total |
+|---|---:|---:|---:|
+| Notebook | 12.50 | 2 | 25.00 |
+| Pen | 3.00 | 3 | 9.00 |
+| Subtotal | | | 34.00 |
+| Total | | | 34.00 |
+
+Product price changes made before checkout are reflected in
+the newly created order.
+
+### Order snapshots
+
+Order information is copied into the `orders` and `order_items`
+tables rather than calculated dynamically from current product
+or address records.
+
+| Snapshot | Stored fields |
+|---|---|
+| Order | Customer, subtotal, total, status, timestamps |
+| Product | Product ID, product name, unit price |
+| Order item | Quantity, line total |
+| Delivery address | Title, city, district, address line, phone |
+
+Product and delivery address snapshots remain independent of
+their original records.
+
+Subsequent changes to product names, product prices, or customer
+addresses do not change existing order snapshots.
+
+Deleting the original delivery address does not remove the
+delivery address snapshot stored in the order.
+
+### Snapshot immutability
+
+Persisted order snapshots are protected at the entity and
+JPA mapping levels.
+
+- Snapshot columns use `updatable = false`.
+- Persisted order ownership cannot be changed through entity setters.
+- Persisted delivery address snapshots cannot be modified.
+- Order items cannot be added to an already persisted order.
+- The order item collection is exposed as an unmodifiable list.
+- Persisted order totals cannot be recalculated.
+- Persisted order items cannot be reassigned through `setOrder()`.
+- Order status remains editable for future order management.
+- The `updatedAt` timestamp remains editable through the
+  entity lifecycle callback.
+
+These protections apply to ordinary application-level entity
+operations. Direct SQL modifications and explicit repository
+deletions are not prevented by these mappings.
+
+### Transactional behavior
+
+`CheckoutService.checkout()` uses Spring's `@Transactional`
+annotation.
+
+The checkout operation performs the following steps:
+
+1. Resolve and lock the customer account.
+2. Retrieve the customer's cart and cart items.
+3. Retrieve and validate the owned delivery address.
+4. Validate product availability and quantities.
+5. Create the order and delivery address snapshot.
+6. Create order item snapshots.
+7. Calculate the subtotal and total.
+8. Persist the order and associated order items.
+9. Delete the purchased cart items.
+10. Commit the transaction.
+
+Order creation and cart clearing participate in the same
+transaction.
+
+If a runtime exception or database persistence failure occurs,
+the transaction is rolled back. No partial order is retained,
+and deleted cart items are restored.
+
+### Cart clearing and concurrency
+
+- Only the purchasing customer's cart items are deleted.
+- The existing cart record is preserved.
+- Other customers' carts remain unchanged.
+- Checkout and existing cart mutations for the same customer
+  are serialized using a pessimistic customer-row lock.
+- Repeating checkout after the cart has been cleared is rejected
+  because the cart is empty.
+
+Checkout validates current stock but does not reserve or
+decrease inventory. Concurrent product or inventory updates
+are not serialized by the customer-row lock.
+
+### Failure handling
+
+The checkout service uses the project's existing exception types.
+
+| Exception | Condition | HTTP mapping when handled by the existing exception handler |
+|---|---|---|
+| `IllegalArgumentException` | Missing or invalid delivery address ID | `400 Bad Request` |
+| `AccessDeniedException` | Missing, disabled, or unauthorized customer account | `403 Forbidden` |
+| `ResourceNotFoundException` | Missing or foreign delivery address | `404 Not Found` |
+| `ConflictException` | Empty cart, incomplete address, inactive product, invalid quantity, or insufficient stock | `409 Conflict` |
+| Unexpected exception | Database or internal failure | `500 Internal Server Error` |
+
+Failed checkout operations do not create partial orders or
+permanently clear cart items.
+
+### Automated tests
+
+`CheckoutServiceIntegrationTest` contains 26 PostgreSQL
+integration tests covering:
+
+- Successful order and order item persistence.
+- Server-side subtotal and total calculations.
+- Delivery address snapshot persistence.
+- Cart clearing and preservation of the cart record.
+- Protection of other customers' carts.
+- Missing and empty carts.
+- Missing, invalid, foreign, and incomplete delivery addresses.
+- Inactive products and insufficient stock.
+- Disabled, unauthorized, and nonexistent customer accounts.
+- Current database prices.
+- Quantities equal to available stock.
+- Product snapshot independence after product updates.
+- Delivery address snapshot independence after updates and deletion.
+- Repeated checkout rejection.
+- Rollback on database persistence failure.
+- Rollback after order persistence and cart deletion.
+- Rollback when cart clearing fails.
+- Persisted snapshot immutability.
+- Order ownership protection.
+- Order item collection and total protection.
+- Order status updates without changing snapshots.
+
+Run the checkout integration tests:
+
+```bash
+./mvnw -Dtest=CheckoutServiceIntegrationTest test
+```
+
+The tests use the `postgres-test` profile and explicit
+transaction boundaries to verify committed database changes
+and transaction rollback.
+
+Test cleanup removes only records created by the tests.
+
+### Scope
+
+CAP-24 implements transactional order creation at the service
+layer. It does not introduce a new REST endpoint or modify
+the existing checkout UI.
+
+Payment processing, inventory deduction, order confirmation
+UI, and order management workflows are outside the scope
+of this implementation.
+
+No additional mobile or desktop screenshots are required
+because CAP-24 introduces no UI changes.
 
 ## API Error Handling
 

@@ -38,7 +38,6 @@
                         <th>Price</th>
                         <th>Quantity</th>
                         <th>Subtotal</th>
-                        <th>&nbsp;</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -50,55 +49,47 @@
                             </span>
                         </td>
                         <td class="product-price" data-label="Price" th:text="${#numbers.formatDecimal(item.unitPrice, 1, 2)}">$0.00</td>
-                        <td class="product-quantity" data-label="Quantity">
-                            <div class="quantity-control">
-                                <button type="button" class="quantity-btn minus" th:data-item-id="${item.id}" th:aria-label="|Decrease quantity of ${item.productName}|" th:disabled="${item.quantity <= 1 or !item.available}">−</button>
-                                <input type="number" min="1" step="1"
-                                       value="${item.quantity}"
-                                       th:value="${item.quantity}"
-                                       readonly
-                                       class="quantity-input"
-                                       th:data-item-id="${item.id}"
-                                       required>
-                                <button type="button" class="quantity-btn plus" th:data-item-id="${item.id}" th:aria-label="|Increase quantity of ${item.productName}|" th:disabled="${!item.available}">+</button>
-                            </div>
-                        </td>
+                        <td class="product-quantity" data-label="Quantity" th:text="${item.quantity}">1</td>
                         <td class="product-subtotal" data-label="Subtotal" th:text="${#numbers.formatDecimal(item.lineTotal, 1, 2)}">$0.00</td>
-                        <td class="product-actions" data-label="Action">
-                            <button type="button" class="btn btn-link text-danger remove-item" th:data-item-id="${item.id}" th:aria-label="|Remove ${item.productName} from cart|">Remove</button>
-                        </td>
                     </tr>
                     </tbody>
                 </table>
             </div>
 
+            <p th:unless="${cart.items.isEmpty()}" class="cart-totals">
+                Cart total: <strong th:text="${#numbers.formatDecimal(cart.subtotal, 1, 2)}">0.00</strong>
+                <a th:href="@{/cart}">Edit cart</a>
+            </p>
+
             <!-- Delivery Address Selection -->
-            <div class="card" th:if="${cart.items.isEmpty()} == false">
+            <div class="card" th:if="${!cart.items.isEmpty()}">
                 <h3>Delivery Address</h3>
                 <p>Select a delivery address from your owned addresses:</p>
 
-                <form th:action="@{/checkout}" method="post" th:object="${checkoutRequest}" class="form-card">
+                <div th:if="${#lists.isEmpty(addresses)}" class="empty-state">
+                    <p>No delivery addresses yet. Add an address before placing an order.</p>
+                    <a th:href="@{/addresses}" class="btn btn-primary">Add an address</a>
+                </div>
+
+                <form th:unless="${#lists.isEmpty(addresses)}" th:action="@{/checkout}" method="post" th:object="${checkoutRequest}" class="form-card">
                     <div class="field">
                         <label for="deliveryAddress">Delivery Address</label>
-                        <select id="deliveryAddress" name="deliveryAddressId" class="form-select" required>
+                        <select id="deliveryAddress" th:field="*{deliveryAddressId}" class="form-select" required>
                             <option value="">-- Select an address --</option>
                             <option th:each="address : ${addresses}"
                                     th:value="${address.id}"
-                                    th:text="${address.title} + ', ' + ${address.city} + ', ' + ${address.district}"
-                                    th:selected="*{deliveryAddressId} == ${address.id}">
+                                    th:text="${address.title} + ', ' + ${address.city} + ', ' + ${address.district}">
                             </option>
                         </select>
                         <div class="error" th:if="${#fields.hasErrors('deliveryAddressId')}" th:errors="*{deliveryAddressId}">Invalid address</div>
                     </div>
 
-                    <input type="hidden" th:field="*{deliveryAddressId}"/>
-
-                    <button type="submit" class="btn btn-primary btn-block">Proceed to Checkout</button>
+                    <button type="submit" class="btn btn-primary btn-block">Place order</button>
                 </form>
 
                 <hr/>
 
-                <a th:href="@{/addresses}" class="btn btn-link">Manage addresses</a>
+                <a th:if="${!#lists.isEmpty(addresses)}" th:href="@{/addresses}" class="btn btn-link">Manage addresses</a>
             </div>
 
         </div>
@@ -108,8 +99,6 @@
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
-
-<script th:src="@{/js/add-to-cart.js}" defer></script>
 
 </body>
 </html>

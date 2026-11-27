@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Admin order detail')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<div class="admin-shell">
+    <aside th:replace="~{fragments/admin-sidebar :: adminSidebar}"></aside>
+    <main id="main" class="admin-main">
+        <p><a th:href="@{/admin/orders}">&larr; Back to orders</a></p>
+        <h1 th:text="'Order #' + ${order.id}">Order #1</h1>
+        <div class="card admin-order-details">
+            <h2>Order information</h2>
+            <dl>
+                <dt>Customer</dt><dd th:text="${order.customerName}">Name</dd>
+                <dt>Customer email</dt><dd th:text="${order.customerEmail}">customer@example.com</dd>
+                <dt>Date</dt><dd th:text="${order.createdAt}">2026-01-01</dd>
+                <dt>Current status</dt><dd th:text="${order.status}">PENDING</dd>
+                <dt>Subtotal</dt><dd th:text="'$' + ${order.subtotal}">$0.00</dd>
+                <dt>Total</dt><dd th:text="'$' + ${order.total}">$0.00</dd>
+            </dl>
+        </div>
+        <div class="card admin-order-details">
+            <h2>Delivery address at checkout</h2>
+            <dl>
+                <dt>Label</dt><dd th:text="${#strings.isEmpty(order.shipTitle) ? 'Not specified' : order.shipTitle}">Home</dd>
+                <dt>Address</dt><dd th:text="${order.shipCity + ', ' + order.shipDistrict + ', ' + order.shipAddressLine}">Address</dd>
+                <dt>Phone</dt><dd th:text="${order.shipPhone}">99112233</dd>
+            </dl>
+        </div>
+        <h2>Items at checkout</h2>
+        <div class="table-wrap">
+            <table>
+                <caption class="visually-hidden">Purchased item snapshots</caption>
+                <thead><tr><th scope="col">Product</th><th scope="col">Unit price</th><th scope="col">Quantity</th><th scope="col">Line total</th></tr></thead>
+                <tbody>
+                    <tr th:each="item : ${order.items}">
+                        <td th:text="${item.productName}">Product</td>
+                        <td th:text="'$' + ${item.unitPrice}">$0.00</td>
+                        <td th:text="${item.quantity}">1</td>
+                        <td th:text="'$' + ${item.lineTotal}">$0.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

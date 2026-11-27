@@ -48,21 +48,14 @@ public class AddressWebController {
         return "addresses";
     }
 
-    /** Show create address form (only when no addresses exist). */
+    /** The list page contains the create form. */
     @GetMapping("/create")
     public String showCreateForm(Model model, Principal principal) {
         if (principal == null) {
             return "redirect:/login";
         }
 
-        // Only show create form if no addresses exist; otherwise redirect
-        List<AddressResponse> addresses = addressService.listAddresses();
-        if (!addresses.isEmpty()) {
-            return "redirect:/addresses";
-        }
-
-        model.addAttribute("addressForm", new AddressForm());
-        return "addresses::form-content";
+        return "redirect:/addresses";
     }
 
     /** Process create address form. */
@@ -102,18 +95,24 @@ public class AddressWebController {
             return "redirect:/login";
         }
 
-        AddressResponse address = addressService.getDefaultAddress() != null
-                && addressService.getDefaultAddress().getId().equals(id)
-                ? addressService.getDefaultAddress()
-                : null;
-
-        // In a full implementation, we'd fetch the address by id with ownership check
-        // For now, show the form with the address data
-        model.addAttribute("addressForm", new AddressForm());
+        AddressResponse address = addressService.listAddresses().stream()
+                .filter(entry -> entry.getId().equals(id))
+                .findFirst()
+                .orElseThrow(() -> new mn.icode.exception.ResourceNotFoundException("Address not found"));
+        AddressForm form = new AddressForm();
+        form.setTitle(address.getTitle());
+        form.setCity(address.getCity());
+        form.setDistrict(address.getDistrict());
+        form.setAddressLine(address.getAddressLine());
+        form.setPhone(address.getPhone());
+        form.setDefaultAddress(address.getDefaultAddress());
+        model.addAttribute("addressForm", form);
+        model.addAttribute("addresses", addressService.listAddresses());
+        model.addAttribute("defaultAddress", addressService.getDefaultAddress());
         model.addAttribute("addressId", id);
         model.addAttribute("isEdit", true);
 
-        return "addresses::form-content";
+        return "addresses";
     }
 
     /** Process edit address form. */
@@ -132,7 +131,9 @@ public class AddressWebController {
         if (result.hasErrors()) {
             model.addAttribute("addressId", id);
             model.addAttribute("isEdit", true);
-            return "addresses::form-content";
+            model.addAttribute("addresses", addressService.listAddresses());
+            model.addAttribute("defaultAddress", addressService.getDefaultAddress());
+            return "addresses";
         }
 
         try {
@@ -143,17 +144,21 @@ public class AddressWebController {
             model.addAttribute("flashError", e.getMessage());
             model.addAttribute("addressId", id);
             model.addAttribute("isEdit", true);
+            model.addAttribute("addresses", addressService.listAddresses());
+            model.addAttribute("defaultAddress", addressService.getDefaultAddress());
             return "addresses";
         } catch (Exception e) {
             model.addAttribute("flashError", "Error updating address: " + e.getMessage());
             model.addAttribute("addressId", id);
             model.addAttribute("isEdit", true);
+            model.addAttribute("addresses", addressService.listAddresses());
+            model.addAttribute("defaultAddress", addressService.getDefaultAddress());
             return "addresses";
         }
     }
 
     /** Delete an address. */
-    @GetMapping("/delete/{id}")
+    @PostMapping("/delete/{id}")
     public String deleteAddress(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes, Principal principal) {
         if (principal == null) {
             return "redirect:/login";

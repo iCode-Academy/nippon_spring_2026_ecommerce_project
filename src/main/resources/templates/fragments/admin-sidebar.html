@@ -18,6 +18,10 @@
                 <a class="admin-nav-link" th:href="@{/admin/categories}"
                    th:classappend="${#strings.startsWith(nav.currentPath, '/admin/categories')} ? 'is-active'">Categories</a>
             </li>
+            <li>
+                <a class="admin-nav-link" th:href="@{/admin/orders}"
+                   th:classappend="${#strings.startsWith(nav.currentPath, '/admin/orders')} ? 'is-active'">Orders</a>
+            </li>
         </ul>
         <a class="admin-nav-shop" th:href="@{/products}">Back to shop</a>
     </nav>

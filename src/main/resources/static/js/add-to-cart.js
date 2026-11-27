@@ -192,6 +192,7 @@ function renderCart(cart) {
     const tableBody = document.querySelector("#cart-table-body");
     const cartItems = document.querySelector("#cart-items");
     const cartTotals = document.querySelector("#cart-totals");
+    const checkoutLink = document.querySelector("#cart-checkout");
     const emptyState = document.querySelector("#cart-empty-state");
     const subtotal = document.querySelector("#cart-subtotal");
 
@@ -228,6 +229,7 @@ function renderCart(cart) {
 
     cartItems.hidden = isEmpty;
     cartTotals.hidden = isEmpty;
+    checkoutLink.hidden = isEmpty;
     emptyState.hidden = !isEmpty;
 }
 

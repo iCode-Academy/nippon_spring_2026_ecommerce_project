@@ -73,8 +73,40 @@ The product table has no "Updated At" column because products do not store an up
 |---|---|---|---|
 | `/api/admin/orders` | GET | `200`, paged `content` with `id`, `createdAt`, `status`, `customerEmail`, `total` and page metadata | `400` invalid range/page/size, `403` CUSTOMER |
 | `/api/admin/orders/{id}` | GET | `200`, customer name/email, shipping address and item snapshots, subtotal, total and current status | `404` unknown order, `403` CUSTOMER |
+| `/api/admin/orders/{id}/status` | PATCH | `200`, updated order detail | `400` invalid/missing fields, `403` CUSTOMER or missing/invalid CSRF, `404` unknown order, `409` invalid transition or stale update |
 
 Optional list parameters: `email` (exact match, trimmed and case-insensitive), `status` (`PENDING`, `CONFIRMED`, `SHIPPED`, `DELIVERED`, `CANCELLED`), `from` and `to` (`yyyy-MM-dd`, inclusive UTC days), `page` (zero-based, default `0`), `size` (default `20`, max `100`). Results are ordered by `createdAt DESC, id DESC`. Empty results return `200` with empty `content`; the UI shows an empty state and keeps the selected filters when moving between pages. The detail uses stored checkout snapshots rather than current product/address values. The HTML pages and API require `ADMIN` (anonymous users are redirected to login); missing HTML details show a 404 page. Invalid date ranges show an inline error in the list UI.
+
+### Admin order status transitions (CAP-29)
+
+Only explicitly allowlisted admin transitions are accepted. The lifecycle mirrors the existing `OrderStatus` enum and CAP-27 cancellation rules:
+
+| Current status | Allowed next statuses |
+|---|---|
+| `PENDING` | `CONFIRMED`, `CANCELLED` |
+| `CONFIRMED` | `SHIPPED`, `CANCELLED` |
+| `SHIPPED` | `DELIVERED` |
+| `DELIVERED` | none (terminal) |
+| `CANCELLED` | none (terminal) |
+
+Same-status, backward, skipped/arbitrary, and terminal-state transitions are rejected with `409 Conflict`. Admin cancellation (`PENDING`/`CONFIRMED` → `CANCELLED`) restores stock using the CAP-27 rules: the order and products are locked, products are restored in ascending product-id order, and the whole update rolls back if a product is missing or stock would overflow.
+
+The request must include both the target status and the status the admin last saw:
+
+```http
+PATCH /api/admin/orders/7/status
+Content-Type: application/json
+X-CSRF-TOKEN: <token>
+
+{
+  "status": "CONFIRMED",
+  "expectedStatus": "PENDING"
+}
+```
+
+`expectedStatus` enables stale-update detection. If another admin already changed the order, the API answers `409 Conflict` with `code: "STALE_UPDATE"`, `expectedStatus`, and `currentStatus` instead of overwriting the newer state. Invalid transitions answer `409 Conflict` with `code: "INVALID_TRANSITION"`, `fromStatus`, and `toStatus`. All errors use the shared `ProblemDetail` format.
+
+The admin order detail page renders only the allowlisted next actions and sends them with `fetch()` using the CSRF token from the layout meta tags. Failed transitions display the structured title/detail/code in an alert region; stale updates offer a **Reload order** action. Terminal orders show a clear message instead of action buttons. The layout is responsive on desktop and mobile viewports.
 
 UI evidence (seeded demonstration data): `docs/ui-evidence/admin-orders-desktop.png`, `docs/ui-evidence/admin-orders-mobile.png`, `docs/ui-evidence/admin-order-detail-desktop.png`, `docs/ui-evidence/admin-order-detail-mobile.png`.
 

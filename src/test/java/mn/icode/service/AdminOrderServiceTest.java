@@ -21,6 +21,7 @@ import mn.icode.entity.User;
 import mn.icode.exception.ResourceNotFoundException;
 import mn.icode.model.OrderStatus;
 import mn.icode.repository.OrderRepository;
+import mn.icode.repository.ProductRepository;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -29,6 +30,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class AdminOrderServiceTest {
     @Mock OrderRepository repository;
+    @Mock ProductRepository productRepository;
 
     @Test
     void filtersNormalizeEmailUseInclusiveUtcDatesAndStablePagination() {
@@ -43,7 +45,7 @@ class AdminOrderServiceTest {
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(order)));
 
-        var result = new AdminOrderService(repository).list(OrderStatus.PENDING,
+        var result = new AdminOrderService(repository, productRepository).list(OrderStatus.PENDING,
                 " Nora@Example.com ", LocalDate.parse("2026-11-26"),
                 LocalDate.parse("2026-11-27"), 2, 5);
 
@@ -57,7 +59,7 @@ class AdminOrderServiceTest {
 
     @Test
     void invalidDateRangeAndPaginationDoNotQueryDatabase() {
-        AdminOrderService service = new AdminOrderService(repository);
+        AdminOrderService service = new AdminOrderService(repository, productRepository);
         assertThrows(IllegalArgumentException.class, () -> service.list(null, null, null, null, -1, 20));
         assertThrows(IllegalArgumentException.class, () -> service.list(null, null, null, null, 0, 101));
         assertThrows(IllegalArgumentException.class, () -> service.list(null, null,
@@ -85,7 +87,7 @@ class AdminOrderServiceTest {
         when(order.getItems()).thenReturn(List.of(item));
         when(repository.findById(7L)).thenReturn(Optional.of(order));
 
-        var detail = new AdminOrderService(repository).detail(7L);
+        var detail = new AdminOrderService(repository, productRepository).detail(7L);
         assertEquals("Nora Test", detail.customerName());
         assertEquals("nora@example.com", detail.customerEmail());
         assertEquals("Ulaanbaatar", detail.shipCity());
@@ -97,6 +99,6 @@ class AdminOrderServiceTest {
     @Test
     void missingDetailReturns404Exception() {
         when(repository.findById(99L)).thenReturn(Optional.empty());
-        assertThrows(ResourceNotFoundException.class, () -> new AdminOrderService(repository).detail(99L));
+        assertThrows(ResourceNotFoundException.class, () -> new AdminOrderService(repository, productRepository).detail(99L));
     }
 }

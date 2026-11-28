@@ -692,6 +692,41 @@ tbody tr:last-child td {
     }
 }
 
+.admin-order-status {
+    margin-block: 1rem;
+}
+
+.admin-order-status h2 {
+    margin-top: 0;
+}
+
+.admin-order-status .admin-status-actions {
+    margin-top: 0.75rem;
+}
+
+.admin-order-status .admin-status-actions .form-actions {
+    margin-top: 0.5rem;
+}
+
+.admin-order-status .admin-status-actions .btn {
+    min-height: 2.75rem;
+}
+
+.admin-order-status .status-feedback-detail {
+    margin: 0.5rem 0 0;
+    overflow-wrap: anywhere;
+}
+
+.admin-order-status .flash-region .btn {
+    margin-top: 0.5rem;
+}
+
+@media (max-width: 40rem) {
+    .admin-order-status .admin-status-actions .btn {
+        flex: 1 1 auto;
+    }
+}
+
 .form-card {
     display: grid;
     gap: 1rem;

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<aside th:fragment="accountNav" class="account-sidebar">
+    <div class="account-sidebar-card">
+        <p class="eyebrow">Your space</p>
+        <h2>My account</h2>
+        <nav aria-label="Account navigation" class="account-links">
+            <a th:href="@{/profile}"
+               th:classappend="${#strings.startsWith(nav.currentPath, '/profile')} ? 'is-active'"
+               th:attr="aria-current=${#strings.startsWith(nav.currentPath, '/profile')} ? 'page'">My profile</a>
+            <a th:href="@{/orders}"
+               th:classappend="${#strings.startsWith(nav.currentPath, '/orders')} ? 'is-active'"
+               th:attr="aria-current=${#strings.startsWith(nav.currentPath, '/orders')} ? 'page'">My orders</a>
+            <a th:href="@{/addresses}"
+               th:classappend="${#strings.startsWith(nav.currentPath, '/addresses')} ? 'is-active'"
+               th:attr="aria-current=${#strings.startsWith(nav.currentPath, '/addresses')} ? 'page'">Delivery addresses</a>
+        </nav>
+    </div>
+</aside>
+</body>
+</html>

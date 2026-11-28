@@ -15,12 +15,12 @@
             <h1>Shop smarter.<br>Live better.</h1>
             <p class="lead">From everyday essentials to your next favorite find, we've got you covered.</p>
             <div class="hero-actions" th:if="${!nav.authenticated}">
-                <a class="btn btn-primary" th:href="@{/register}">Create an account</a>
-                <a class="btn btn-secondary" th:href="@{/login}">Sign in</a>
+                <a class="btn btn-primary" th:href="@{/products}">Browse the catalog</a>
+                <a class="btn btn-secondary" th:href="@{/register}">Create an account</a>
             </div>
             <div class="hero-actions" th:if="${nav.authenticated}">
                 <a class="btn btn-primary" th:href="@{/products}">Browse the catalog</a>
-                <a class="btn btn-secondary" th:href="@{/orders}">View my orders</a>
+                <a th:if="${!nav.admin}" class="btn btn-secondary" th:href="@{/orders}">View my orders</a>
             </div>
         </div>
         <div class="hero-art" aria-hidden="true">
@@ -47,7 +47,7 @@
         </div>
     </section>
 
-    <section th:if="${nav.authenticated}" class="categories" aria-label="Shop by category">
+    <section class="categories" aria-label="Shop by category">
         <a class="category" th:href="@{/products}"><strong>Stationery</strong></a>
         <a class="category" th:href="@{/products}"><strong>Kitchen</strong></a>
         <a class="category" th:href="@{/products}"><strong>Electronics</strong></a>
@@ -55,9 +55,25 @@
         <a class="category" th:href="@{/products}"><strong>Beauty</strong></a>
         <a class="category" th:href="@{/products}"><strong>Books</strong></a>
     </section>
+
+    <section aria-labelledby="featured-products-title" class="featured-products">
+        <div class="page-heading">
+            <h2 id="featured-products-title">Featured products</h2>
+            <a th:href="@{/products}" class="btn btn-secondary">View all products</a>
+        </div>
+        <div th:if="${#lists.isEmpty(products)}" class="empty-state card">
+            <p>No products yet. Please check back soon.</p>
+        </div>
+        <div th:unless="${#lists.isEmpty(products)}" class="card-grid">
+            <th:block th:each="product : ${products}">
+                <div th:replace="~{fragments/product-card :: productCard (product=${product})}"></div>
+            </th:block>
+        </div>
+    </section>
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
+<script th:if="${nav.authenticated and !nav.admin}" th:src="@{/js/add-to-cart.js}" defer></script>
 </body>
 
 </html>

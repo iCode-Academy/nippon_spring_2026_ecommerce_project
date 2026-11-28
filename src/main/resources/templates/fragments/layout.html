@@ -7,7 +7,7 @@
     <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
     <meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
     <title th:text="${title} + ' · Nippon Shop'">Nippon Shop</title>
-    <link rel="stylesheet" th:href="@{/css/app.css(v=18)}">
+    <link rel="stylesheet" th:href="@{/css/app.css(v=26)}">
 </head>
 
 <body>
@@ -22,21 +22,9 @@
                     <a th:href="@{/}"
                        th:classappend="${#strings.equals(nav.currentPath, '/')} ? 'nav-active'">Home</a>
                 </li>
-                <li th:if="${nav.authenticated}">
-                    <a th:href="@{/home}"
-                       th:classappend="${#strings.equals(nav.currentPath, '/home')} ? 'nav-active'">Shop</a>
-                </li>
-                <li th:if="${nav.authenticated}">
+                <li>
                     <a th:href="@{/products}"
                        th:classappend="${#strings.startsWith(nav.currentPath, '/products')} ? 'nav-active'">Products</a>
-                </li>
-                <li th:if="${nav.authenticated and !nav.admin}">
-                    <a th:href="@{/orders}"
-                       th:classappend="${#strings.startsWith(nav.currentPath, '/orders')} ? 'nav-active'">My orders</a>
-                </li>
-                <li th:if="${nav.authenticated and !nav.admin}">
-                    <a th:href="@{/cart}"
-                       th:classappend="${#strings.startsWith(nav.currentPath, '/cart')} ? 'nav-active'">Cart</a>
                 </li>
                 <li th:if="${nav.admin}">
                     <a th:href="@{/admin}"
@@ -44,19 +32,29 @@
                 </li>
             </ul>
             <ul class="nav-auth">
+                <li th:if="${nav.authenticated and !nav.admin}">
+                    <a th:href="@{/cart}"
+                       th:classappend="${#strings.startsWith(nav.currentPath, '/cart')} ? 'nav-active'">Cart</a>
+                </li>
                 <li th:if="${!nav.authenticated}">
                     <a th:href="@{/login}">Sign in</a>
                 </li>
                 <li th:if="${!nav.authenticated}">
                     <a class="btn btn-primary" th:href="@{/register}">Register</a>
                 </li>
-                <li th:if="${nav.authenticated}" class="nav-user">
-                    <span th:text="${nav.name}">user@example.com</span>
-                </li>
-                <li th:if="${nav.authenticated}">
-                    <form th:action="@{/logout}" method="post" class="inline-form">
-                        <button type="submit" class="btn btn-ghost">Sign out</button>
-                    </form>
+                <li th:if="${nav.authenticated}" class="nav-account">
+                    <details class="account-menu">
+                        <summary th:classappend="${#strings.startsWith(nav.currentPath, '/profile') or #strings.startsWith(nav.currentPath, '/orders') or #strings.startsWith(nav.currentPath, '/addresses')} ? 'nav-active'">Account <span aria-hidden="true">▾</span></summary>
+                        <div class="account-menu-panel">
+                            <p class="account-menu-user" th:text="${nav.name}">user@example.com</p>
+                            <a th:href="@{/profile}">My profile</a>
+                            <a th:if="${!nav.admin}" th:href="@{/orders}">My orders</a>
+                            <a th:if="${!nav.admin}" th:href="@{/addresses}">Delivery addresses</a>
+                            <form th:action="@{/logout}" method="post">
+                                <button type="submit">Sign out</button>
+                            </form>
+                        </div>
+                    </details>
                 </li>
             </ul>
         </nav>

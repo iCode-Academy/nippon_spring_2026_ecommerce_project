@@ -3,7 +3,10 @@ package mn.icode.web;
 import mn.icode.dto.ProfileRequest;
 import mn.icode.dto.ProfileResponse;
 import mn.icode.service.UserProfileService;
-import mn.icode.service.AddressService;
+import mn.icode.service.ProfileAuthenticationService;
+import mn.icode.exception.ConflictException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -20,12 +23,13 @@ import java.security.Principal;
 public class ProfileWebController {
 
     private final UserProfileService userProfileService;
-    private final AddressService addressService;
+    private final ProfileAuthenticationService profileAuthenticationService;
 
     @Autowired
-    public ProfileWebController(UserProfileService userProfileService, AddressService addressService) {
+    public ProfileWebController(UserProfileService userProfileService,
+                                ProfileAuthenticationService profileAuthenticationService) {
         this.userProfileService = userProfileService;
-        this.addressService = addressService;
+        this.profileAuthenticationService = profileAuthenticationService;
     }
 
     /** Show profile edit form. */
@@ -37,7 +41,12 @@ public class ProfileWebController {
 
         ProfileResponse profile = userProfileService.getProfile();
         model.addAttribute("profile", profile);
-        model.addAttribute("profileForm", new ProfileRequest());
+        ProfileRequest form = new ProfileRequest();
+        form.setFirstName(profile.getFirstName());
+        form.setLastName(profile.getLastName());
+        form.setEmail(profile.getEmail());
+        form.setPhone(profile.getPhone());
+        model.addAttribute("profileForm", form);
         return "profile";
     }
 
@@ -47,28 +56,26 @@ public class ProfileWebController {
                                 BindingResult result,
                                 Model model,
                                 RedirectAttributes redirectAttributes,
-                                Principal principal) {
+                                Principal principal,
+                                HttpServletRequest request,
+                                HttpServletResponse response) {
 
         if (principal == null) {
             return "redirect:/login";
         }
 
         if (result.hasErrors()) {
-            // Re-render profile with validation errors
-            ProfileResponse profile = userProfileService.getProfile();
-            model.addAttribute("profile", profile);
-            model.addAttribute("profileForm", form);
             return "profile";
         }
 
         try {
-            userProfileService.updateProfile(form);
+            ProfileResponse updated = userProfileService.updateProfile(form);
+            profileAuthenticationService.refreshAfterEmailChange(principal.getName(), updated.getEmail(),
+                    request, response);
             redirectAttributes.addFlashAttribute("flashSuccess", "Profile updated successfully.");
             return "redirect:/profile";
-        } catch (Exception e) {
-            model.addAttribute("profile", userProfileService.getProfile());
-            model.addAttribute("profileForm", form);
-            model.addAttribute("flashError", "Error updating profile: " + e.getMessage());
+        } catch (ConflictException e) {
+            result.rejectValue("email", "duplicate", e.getMessage());
             return "profile";
         }
     }

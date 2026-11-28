@@ -16,6 +16,8 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -88,13 +90,34 @@ class PageNavigationTest {
 
         @Test
         void anonymousUsersSeePublicNavigation() throws Exception {
+                when(productRepository.findByActiveTrue(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
                 mockMvc.perform(get("/"))
                                 .andExpect(status().isOk())
                                 .andExpect(view().name("index"))
+                                .andExpect(content().string(containsString("Featured products")))
+                                .andExpect(content().string(containsString("No products yet")))
                                 .andExpect(content().string(containsString("Sign in")))
                                 .andExpect(content().string(containsString("Register")))
-                                .andExpect(content().string(not(containsString("/products"))))
+                                .andExpect(content().string(containsString("href=\"/products\"")))
+                                .andExpect(content().string(not(containsString("href=\"/profile\""))))
+                                .andExpect(content().string(not(containsString("href=\"/cart\""))))
                                 .andExpect(content().string(not(containsString("/admin"))));
+        }
+
+        @Test
+        void anonymousHomepageShowsAvailableProductsWithoutCartActions() throws Exception {
+                Product product = new Product(new Category("Stationery"), "Fountain Pen",
+                                "Smooth writing", new BigDecimal("12.50"), 5, true);
+                org.springframework.test.util.ReflectionTestUtils.setField(product, "id", 7L);
+                when(productRepository.findByActiveTrue(any(Pageable.class)))
+                                .thenReturn(new PageImpl<>(List.of(product)));
+
+                mockMvc.perform(get("/"))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string(containsString("Fountain Pen")))
+                                .andExpect(content().string(containsString("href=\"/products/7\"")))
+                                .andExpect(content().string(containsString("Sign in to add to cart")))
+                                .andExpect(content().string(not(containsString("class=\"btn btn-sm btn-primary js-add-to-cart\""))));
         }
 
         @Test
@@ -104,6 +127,14 @@ class PageNavigationTest {
                                 .andExpect(redirectedUrl("/login"));
 
                 mockMvc.perform(get("/orders"))
+                                .andExpect(status().is3xxRedirection())
+                                .andExpect(redirectedUrl("/login"));
+
+                mockMvc.perform(get("/cart"))
+                                .andExpect(status().is3xxRedirection())
+                                .andExpect(redirectedUrl("/login"));
+
+                mockMvc.perform(get("/profile"))
                                 .andExpect(status().is3xxRedirection())
                                 .andExpect(redirectedUrl("/login"));
 
@@ -124,8 +155,10 @@ class PageNavigationTest {
                                 .andExpect(status().isOk())
                                 .andExpect(view().name("home"))
                                 .andExpect(content().string(containsString("href=\"/products\"")))
+                                .andExpect(content().string(containsString("<summary")))
                                 .andExpect(content().string(containsString("My orders")))
-                                .andExpect(content().string(containsString("Sign out")))
+                                .andExpect(content().string(containsString("href=\"/profile\"")))
+                                .andExpect(content().string(containsString("action=\"/logout\"")))
                                 .andExpect(content().string(not(containsString("/admin"))));
         }
 
@@ -148,6 +181,8 @@ class PageNavigationTest {
                                 .andExpect(content().string(containsString("aria-label=\"Admin navigation\"")))
                                 .andExpect(content().string(containsString("href=\"/admin/products\"")))
                                 .andExpect(content().string(containsString("href=\"/admin/categories\"")))
+                                .andExpect(content().string(containsString("action=\"/logout\"")))
+                                .andExpect(content().string(not(containsString("Delivery addresses"))))
                                 .andExpect(content().string(containsString("Admin dashboard")))
                                 .andExpect(content().string(not(containsString("Manage products"))));
         }

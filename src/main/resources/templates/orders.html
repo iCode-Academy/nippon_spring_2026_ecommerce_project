@@ -6,10 +6,16 @@
 <body>
 <header th:replace="~{fragments/layout :: nav}"></header>
 
-<main id="main" class="container">
+<main id="main" class="container account-shell">
+    <aside th:replace="~{fragments/account :: accountNav}"></aside>
+    <div class="account-main">
     <div th:replace="~{fragments/layout :: flash}"></div>
 
-    <h1>My orders</h1>
+    <div class="account-page-header">
+        <p class="eyebrow">Your account</p>
+        <h1>My orders</h1>
+        <p class="muted">Review your order history and track each order.</p>
+    </div>
 
     <div th:if="${#lists.isEmpty(orders)}" class="empty-state card">
         <h2>No orders yet</h2>
@@ -55,6 +61,7 @@
                class="btn btn-ghost"
                th:href="@{/orders(page=${page.number + 1}, size=${page.size})}">Next</a>
         </nav>
+    </div>
     </div>
 </main>
 

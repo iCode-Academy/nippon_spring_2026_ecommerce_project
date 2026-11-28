@@ -4,11 +4,14 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
@@ -117,6 +120,40 @@ class CustomerBrowseIntegrationTest {
         }
 
         // --- Browse: only active products are listed ---
+
+        @Test
+        void guestHomepageShowsFeaturedProductsFromDatabase() throws Exception {
+                mockMvc.perform(get("/"))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string(containsString("Featured products")))
+                                .andExpect(content().string(containsString("Last Filler Item")))
+                                .andExpect(content().string(containsString("Sign in to add to cart")))
+                                .andExpect(content().string(not(containsString("Hidden Draft Pen"))));
+        }
+
+        @Test
+        void guestCanBrowseAndViewDetailsButCannotAddToCart() throws Exception {
+                Product product = productRepository.findAll().stream()
+                                .filter(candidate -> "Silver PEN".equals(candidate.getName()))
+                                .findFirst().orElseThrow();
+
+                mockMvc.perform(get("/products").param("keyword", "Silver PEN"))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string(containsString("Silver PEN")))
+                                .andExpect(content().string(containsString("Sign in to add to cart")))
+                                .andExpect(content().string(not(containsString("js-add-to-cart\""))));
+
+                mockMvc.perform(get("/products/{id}", product.getId()))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string(containsString("Sign in to add to cart")))
+                                .andExpect(content().string(not(containsString("id=\"cart-quantity\""))));
+
+                mockMvc.perform(post("/api/cart/items").with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"productId\":" + product.getId() + ",\"quantity\":1}"))
+                                .andExpect(status().is3xxRedirection())
+                                .andExpect(redirectedUrl("/login"));
+        }
 
         @Test
         void browsePageListsOnlyActiveProducts() throws Exception {

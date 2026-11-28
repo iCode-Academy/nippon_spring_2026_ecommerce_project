@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -16,7 +15,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
@@ -111,13 +109,18 @@ class ProductPageControllerTest {
         // --- Access control ---
 
         @Test
-        void anonymousUsersAreSentToLoginForBrowsePage() throws Exception {
-                mockMvc.perform(get("/products"))
-                                .andExpect(status().is3xxRedirection())
-                                .andExpect(redirectedUrl("/login"));
+        void anonymousUsersCanBrowseProductsButMustSignInToAddToCart() throws Exception {
+                ReflectionTestUtils.setField(fountainPen, "id", 1L);
+                when(productService.filterProducts(any(), any(), any(), any(), any(), any(Pageable.class)))
+                                .thenReturn(pageContaining(fountainPen));
 
-                verify(productService, never())
-                                .filterProducts(any(), any(), any(), any(), any(), any(Pageable.class));
+                mockMvc.perform(get("/products"))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string(containsString("Fountain Pen")))
+                                .andExpect(content().string(containsString("Sign in to add to cart")))
+                                .andExpect(content().string(not(containsString("class=\"btn btn-sm btn-primary js-add-to-cart\""))));
+
+                verify(productService).filterProducts(any(), any(), any(), any(), any(), any(Pageable.class));
         }
 
         // --- Browse view rendering ---
@@ -327,12 +330,19 @@ class ProductPageControllerTest {
         }
 
         @Test
-        void anonymousUsersAreSentToLoginForDetailPage() throws Exception {
-                mockMvc.perform(get("/products/1"))
-                                .andExpect(status().is3xxRedirection())
-                                .andExpect(redirectedUrl("/login"));
+        void anonymousUsersCanViewProductDetailsWithSignInPrompt() throws Exception {
+                ReflectionTestUtils.setField(fountainPen, "id", 1L);
+                when(productService.findActiveProductById(1L)).thenReturn(fountainPen);
+                when(productImageService.findByProductId(1L)).thenReturn(List.of());
+                when(reviewService.getPublishedSummary(1L)).thenReturn(ReviewSummary.empty());
 
-                verifyNoInteractions(productService, productImageService, reviewService);
+                mockMvc.perform(get("/products/1"))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string(containsString("Fountain Pen")))
+                                .andExpect(content().string(containsString("Sign in to add to cart")))
+                                .andExpect(content().string(not(containsString("id=\"cart-quantity\""))));
+
+                verify(productService).findActiveProductById(1L);
         }
 
         @Test

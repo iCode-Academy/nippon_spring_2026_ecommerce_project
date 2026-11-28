@@ -112,6 +112,8 @@ class OrderPageControllerTest {
                                 .andExpect(status().isOk())
                                 .andExpect(view().name("orders"))
                                 .andExpect(model().attributeExists("orders"))
+                                .andExpect(content().string(containsString("aria-label=\"Account navigation\"")))
+                                .andExpect(content().string(containsString("href=\"/addresses\"")))
                                 .andExpect(content().string(containsString("No orders yet")));
         }
 
@@ -158,6 +160,8 @@ class OrderPageControllerTest {
                                 .andExpect(status().isOk())
                                 .andExpect(view().name("order-detail"))
                                 .andExpect(model().attributeExists("detail"))
+                                .andExpect(content().string(containsString("aria-label=\"Account navigation\"")))
+                                .andExpect(content().string(containsString("aria-current=\"page\"")))
                                 .andExpect(content().string(containsString("Immutable Spring Guide")));
         }
 

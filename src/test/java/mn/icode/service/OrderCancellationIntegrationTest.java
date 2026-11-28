@@ -36,6 +36,7 @@ import mn.icode.entity.Product;
 import mn.icode.entity.User;
 import mn.icode.exception.ConflictException;
 import mn.icode.exception.ResourceNotFoundException;
+import mn.icode.exception.StaleOrderUpdateException;
 import mn.icode.model.OrderStatus;
 import mn.icode.model.Role;
 import mn.icode.repository.AddressRepository;
@@ -79,6 +80,9 @@ class OrderCancellationIntegrationTest {
 
     @Autowired
     private TransactionTemplate transactionTemplate;
+
+    @Autowired
+    private AdminOrderService adminOrderService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -222,14 +226,13 @@ class OrderCancellationIntegrationTest {
     }
 
     private void updateOrderStatus(Long orderId, OrderStatus orderStatus) {
-        transactionTemplate.executeWithoutResult(status ->
-                orderRepository.findById(orderId).orElseThrow().setStatus(orderStatus));
+        transactionTemplate
+                .executeWithoutResult(status -> orderRepository.findById(orderId).orElseThrow().setStatus(orderStatus));
     }
 
     private void maximizeStock(Long productId) {
-        transactionTemplate.executeWithoutResult(status ->
-                productRepository.findById(productId).orElseThrow()
-                        .setStockQuantity(Integer.MAX_VALUE));
+        transactionTemplate.executeWithoutResult(status -> productRepository.findById(productId).orElseThrow()
+                .setStockQuantity(Integer.MAX_VALUE));
     }
 
     @Test
@@ -289,7 +292,7 @@ class OrderCancellationIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = OrderStatus.class, names = {"SHIPPED", "DELIVERED"})
+    @EnumSource(value = OrderStatus.class, names = { "SHIPPED", "DELIVERED" })
     void cancelOrder_lateStatus_rejectsWithoutRestoringStock(OrderStatus status) {
         User customer = createCustomer();
         Product product = createProduct("Notebook", "12.50", 10, true);
@@ -320,8 +323,8 @@ class OrderCancellationIntegrationTest {
         User customer = createCustomer();
         Product product = createProduct("Notebook", "12.50", 10, true);
         Order order = createOrder(customer, product, 2);
-        transactionTemplate.executeWithoutResult(status ->
-                productRepository.findById(product.getId()).orElseThrow().setActive(false));
+        transactionTemplate.executeWithoutResult(
+                status -> productRepository.findById(product.getId()).orElseThrow().setActive(false));
         assertEquals(8, getStock(product.getId()));
         authenticate(customer);
         orderService.cancelOrder(order.getId());
@@ -386,10 +389,8 @@ class OrderCancellationIntegrationTest {
         CountDownLatch start = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
-            Future<Boolean> first = executor.submit(() ->
-                    attemptCancellation(customer, order.getId(), ready, start));
-            Future<Boolean> second = executor.submit(() ->
-                    attemptCancellation(customer, order.getId(), ready, start));
+            Future<Boolean> first = executor.submit(() -> attemptCancellation(customer, order.getId(), ready, start));
+            Future<Boolean> second = executor.submit(() -> attemptCancellation(customer, order.getId(), ready, start));
             assertTrue(ready.await(10, TimeUnit.SECONDS));
             start.countDown();
             boolean firstSucceeded = first.get(20, TimeUnit.SECONDS);
@@ -421,5 +422,293 @@ class OrderCancellationIntegrationTest {
         } finally {
             SecurityContextHolder.clearContext();
         }
+    }
+
+    @Test
+    void cancellationWins_shippingIsRejected() throws Exception {
+        verifyCancellationShippingRace(true);
+    }
+
+    @Test
+    void shippingWins_cancellationIsRejected() throws Exception {
+        verifyCancellationShippingRace(false);
+    }
+
+    @Test
+    void cancellationAndShipping_simultaneousRequests_onlyOneSucceeds()
+            throws Exception {
+
+        User customer = createCustomer();
+        Product product = createProduct("Notebook", "12.50", 10, true);
+        Order order = createOrder(customer, product, 2);
+
+        adminOrderService.updateStatus(
+                order.getId(),
+                OrderStatus.CONFIRMED,
+                OrderStatus.PENDING);
+
+        assertEquals(8, getStock(product.getId()));
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<Boolean> cancellation = executor.submit(() -> attemptCancellation(
+                    customer, order.getId(), ready, start));
+
+            Future<Boolean> shipping = executor.submit(() -> {
+                ready.countDown();
+                awaitRaceLatch(start);
+
+                return attemptShipping(order.getId());
+            });
+
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+
+            boolean cancellationSucceeded = cancellation.get(20, TimeUnit.SECONDS);
+
+            boolean shippingSucceeded = shipping.get(20, TimeUnit.SECONDS);
+
+            // Exactly one operation must succeed
+            assertTrue(cancellationSucceeded ^ shippingSucceeded);
+
+            assertRaceFinalState(
+                    customer, product, order.getId(),
+                    cancellationSucceeded);
+
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+
+            assertTrue(executor.awaitTermination(
+                    20, TimeUnit.SECONDS));
+        }
+    }
+
+    private void verifyCancellationShippingRace(
+            boolean cancellationWins) throws Exception {
+
+        User customer = createCustomer();
+
+        Product product = createProduct(
+                "Notebook", "12.50", 10, true);
+
+        Order order = createOrder(customer, product, 2);
+
+        Long orderId = order.getId();
+
+        adminOrderService.updateStatus(
+                orderId,
+                OrderStatus.CONFIRMED,
+                OrderStatus.PENDING);
+
+        assertEquals(8, getStock(product.getId()));
+        assertEquals(OrderStatus.CONFIRMED, getOrderStatus(orderId));
+
+        CountDownLatch winnerHoldingLock = new CountDownLatch(1);
+        CountDownLatch loserStarted = new CountDownLatch(1);
+        CountDownLatch releaseWinner = new CountDownLatch(1);
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<Boolean> winner = executor.submit(() -> {
+
+                try {
+                    authenticate(customer);
+
+                    transactionTemplate.executeWithoutResult(status -> {
+
+                        if (cancellationWins) {
+                            orderService.cancelOrder(orderId);
+                        } else {
+                            adminOrderService.updateStatus(
+                                    orderId,
+                                    OrderStatus.SHIPPED,
+                                    OrderStatus.CONFIRMED);
+                        }
+
+                        entityManager.flush();
+
+                        // Transaction remains open and holds the lock
+                        winnerHoldingLock.countDown();
+
+                        awaitRaceLatch(releaseWinner);
+                    });
+
+                    return true;
+
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
+            });
+
+            assertTrue(winnerHoldingLock.await(
+                    10, TimeUnit.SECONDS));
+
+            Future<Boolean> loser = executor.submit(() -> {
+
+                try {
+                    authenticate(customer);
+
+                    loserStarted.countDown();
+
+                    if (cancellationWins) {
+                        return attemptShipping(orderId);
+                    }
+
+                    try {
+                        orderService.cancelOrder(orderId);
+                        return true;
+
+                    } catch (ConflictException expected) {
+                        return false;
+                    }
+
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
+            });
+
+            assertTrue(loserStarted.await(10, TimeUnit.SECONDS));
+
+            // Allow the winning transaction to commit
+            releaseWinner.countDown();
+
+            assertTrue(winner.get(20, TimeUnit.SECONDS));
+
+            // The competing operation must be rejected
+            assertFalse(loser.get(20, TimeUnit.SECONDS));
+
+            assertRaceFinalState(
+                    customer, product, orderId, cancellationWins);
+
+        } finally {
+            releaseWinner.countDown();
+            executor.shutdownNow();
+
+            assertTrue(executor.awaitTermination(
+                    20, TimeUnit.SECONDS));
+        }
+    }
+
+    private boolean attemptShipping(Long orderId) {
+
+        try {
+            adminOrderService.updateStatus(
+                    orderId,
+                    OrderStatus.SHIPPED,
+                    OrderStatus.CONFIRMED);
+
+            return true;
+
+        } catch (StaleOrderUpdateException expected) {
+            return false;
+        }
+    }
+
+    private void awaitRaceLatch(CountDownLatch latch) {
+
+        try {
+            if (!latch.await(15, TimeUnit.SECONDS)) {
+                throw new IllegalStateException(
+                        "Concurrent operation timed out");
+            }
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new IllegalStateException(
+                    "Concurrent operation interrupted", e);
+        }
+    }
+
+    private void assertRaceFinalState(
+            User customer,
+            Product product,
+            Long orderId,
+            boolean cancellationSucceeded) {
+
+        transactionTemplate.executeWithoutResult(status -> {
+
+            Order persistedOrder = orderRepository
+                    .findById(orderId)
+                    .orElseThrow();
+
+            Product persistedProduct = productRepository
+                    .findById(product.getId())
+                    .orElseThrow();
+
+            // Verify final order status
+            assertEquals(
+                    cancellationSucceeded
+                            ? OrderStatus.CANCELLED
+                            : OrderStatus.SHIPPED,
+                    persistedOrder.getStatus());
+
+            // Stock is restored only if cancellation wins
+            assertEquals(
+                    cancellationSucceeded ? 10 : 8,
+                    persistedProduct.getStockQuantity());
+
+            // Exactly one order remains
+            assertEquals(1, orderRepository
+                    .findByUserIdOrderByCreatedAtDesc(customer.getId())
+                    .size());
+
+            // Order ownership remains unchanged
+            assertEquals(
+                    customer.getId(),
+                    persistedOrder.getUser().getId());
+
+            // Original order items remain unchanged
+            assertEquals(1, persistedOrder.getItems().size());
+
+            var item = persistedOrder.getItems().getFirst();
+
+            assertEquals(product.getId(), item.getProductId());
+            assertEquals("Notebook", item.getProductName());
+            assertEquals(2, item.getQuantity());
+
+            assertEquals(
+                    new BigDecimal("12.50"),
+                    item.getUnitPrice());
+
+            assertEquals(
+                    new BigDecimal("25.00"),
+                    item.getLineTotal());
+
+            // Original totals remain unchanged
+            assertEquals(
+                    new BigDecimal("25.00"),
+                    persistedOrder.getSubtotal());
+
+            assertEquals(
+                    new BigDecimal("25.00"),
+                    persistedOrder.getTotal());
+
+            // Delivery address snapshot remains unchanged
+            assertEquals("Home", persistedOrder.getShipTitle());
+            assertEquals("Ulaanbaatar", persistedOrder.getShipCity());
+            assertEquals("Bayanzurkh", persistedOrder.getShipDistrict());
+
+            assertEquals(
+                    "Test Street 123",
+                    persistedOrder.getShipAddressLine());
+
+            assertEquals("99112233", persistedOrder.getShipPhone());
+
+            // Checkout cart remains empty
+            Cart cart = cartRepository
+                    .findByUserId(customer.getId())
+                    .orElseThrow();
+
+            assertTrue(cartItemRepository
+                    .findByCartOrderByIdAsc(cart)
+                    .isEmpty());
+        });
     }
 }

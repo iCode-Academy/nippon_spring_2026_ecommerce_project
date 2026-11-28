@@ -54,1156 +54,1244 @@ import mn.icode.repository.UserRepository;
 @ActiveProfiles("postgres-test")
 class CheckoutServiceIntegrationTest {
 
-    @Autowired
-    private CheckoutService checkoutService;
+        @Autowired
+        private CheckoutService checkoutService;
 
-    @Autowired
-    private UserRepository userRepository;
+        @Autowired
+        private UserRepository userRepository;
 
-    @Autowired
-    private AddressRepository addressRepository;
+        @Autowired
+        private AddressRepository addressRepository;
 
-    @Autowired
-    private CategoryRepository categoryRepository;
+        @Autowired
+        private CategoryRepository categoryRepository;
 
-    @Autowired
-    private ProductRepository productRepository;
+        @Autowired
+        private ProductRepository productRepository;
 
-    @Autowired
-    private CartRepository cartRepository;
+        @Autowired
+        private CartRepository cartRepository;
 
-    @MockitoSpyBean
-    private CartItemRepository cartItemRepository;
+        @MockitoSpyBean
+        private CartItemRepository cartItemRepository;
 
-    @Autowired
-    private OrderRepository orderRepository;
+        @Autowired
+        private OrderRepository orderRepository;
 
-    @Autowired
-    private TransactionTemplate transactionTemplate;
+        @Autowired
+        private TransactionTemplate transactionTemplate;
 
-    @PersistenceContext
-    private EntityManager entityManager;
+        @PersistenceContext
+        private EntityManager entityManager;
 
-    private final List<Long> customerIds = new ArrayList<>();
-    private final List<Long> productIds = new ArrayList<>();
-    private final List<Long> categoryIds = new ArrayList<>();
+        private final List<Long> customerIds = new ArrayList<>();
+        private final List<Long> productIds = new ArrayList<>();
+        private final List<Long> categoryIds = new ArrayList<>();
 
-    private User createCustomer() {
-        User user = new User();
+        private User createCustomer() {
+                User user = new User();
 
-        user.setFirstName("Test");
-        user.setLastName("Customer");
-        user.setEmail(UUID.randomUUID() + "@example.com");
-        user.setPassword("test-password");
-        user.setRole(Role.CUSTOMER);
-        user.setEnabled(true);
+                user.setFirstName("Test");
+                user.setLastName("Customer");
+                user.setEmail(UUID.randomUUID() + "@example.com");
+                user.setPassword("test-password");
+                user.setRole(Role.CUSTOMER);
+                user.setEnabled(true);
 
-        User savedUser = userRepository.save(user);
-        customerIds.add(savedUser.getId());
+                User savedUser = userRepository.save(user);
+                customerIds.add(savedUser.getId());
 
-        return savedUser;
-    }
+                return savedUser;
+        }
 
-    private Address createAddress(User user) {
-        Address address = new Address();
+        private Address createAddress(User user) {
+                Address address = new Address();
 
-        address.setUser(user);
-        address.setTitle("Home");
-        address.setCity("Ulaanbaatar");
-        address.setDistrict("Bayanzurkh");
-        address.setAddressLine("Test Street 123");
-        address.setPhone("99112233");
-        address.setDefaultAddress(true);
+                address.setUser(user);
+                address.setTitle("Home");
+                address.setCity("Ulaanbaatar");
+                address.setDistrict("Bayanzurkh");
+                address.setAddressLine("Test Street 123");
+                address.setPhone("99112233");
+                address.setDefaultAddress(true);
 
-        return addressRepository.save(address);
-    }
+                return addressRepository.save(address);
+        }
 
-    private Product createProduct(
-            String name, String price, int stock, boolean active) {
+        private Product createProduct(
+                        String name, String price, int stock, boolean active) {
 
-        Category category = categoryRepository.save(
-                new Category("Checkout Test " + UUID.randomUUID()));
+                Category category = categoryRepository.save(
+                                new Category("Checkout Test " + UUID.randomUUID()));
 
-        categoryIds.add(category.getId());
+                categoryIds.add(category.getId());
 
-        Product product = new Product(
-                category,
-                name,
-                "Test product description",
-                new BigDecimal(price),
-                stock,
-                active);
+                Product product = new Product(
+                                category,
+                                name,
+                                "Test product description",
+                                new BigDecimal(price),
+                                stock,
+                                active);
 
-        Product savedProduct = productRepository.save(product);
-        productIds.add(savedProduct.getId());
+                Product savedProduct = productRepository.save(product);
+                productIds.add(savedProduct.getId());
 
-        return savedProduct;
-    }
+                return savedProduct;
+        }
 
-    private Cart createCart(User user) {
-        return cartRepository.save(new Cart(user));
-    }
+        private Cart createCart(User user) {
+                return cartRepository.save(new Cart(user));
+        }
 
-    private CartItem createCartItem(
-            Cart cart, Product product, int quantity) {
+        private CartItem createCartItem(
+                        Cart cart, Product product, int quantity) {
 
-        CartItem item = new CartItem();
+                CartItem item = new CartItem();
 
-        item.setCart(cart);
-        item.setProduct(product);
-        item.setQuantity(quantity);
+                item.setCart(cart);
+                item.setProduct(product);
+                item.setQuantity(quantity);
 
-        return cartItemRepository.save(item);
-    }
+                return cartItemRepository.save(item);
+        }
 
-    private void assertCheckoutUnchanged(
-            User customer, Cart cart, int expectedItemCount) {
+        private void assertCheckoutUnchanged(
+                        User customer, Cart cart, int expectedItemCount) {
 
-        transactionTemplate.executeWithoutResult(status -> {
+                transactionTemplate.executeWithoutResult(status -> {
 
-            assertTrue(orderRepository
-                    .findByUserIdOrderByCreatedAtDesc(customer.getId())
-                    .isEmpty());
+                        assertTrue(orderRepository
+                                        .findByUserIdOrderByCreatedAtDesc(customer.getId())
+                                        .isEmpty());
 
-            Cart remainingCart = cartRepository
-                    .findByUserId(customer.getId())
-                    .orElseThrow();
+                        Cart remainingCart = cartRepository
+                                        .findByUserId(customer.getId())
+                                        .orElseThrow();
 
-            assertEquals(cart.getId(), remainingCart.getId());
+                        assertEquals(cart.getId(), remainingCart.getId());
 
-            assertEquals(expectedItemCount,
-                    cartItemRepository
-                            .findByCartOrderByIdAsc(remainingCart)
-                            .size());
-        });
-    }
+                        assertEquals(expectedItemCount,
+                                        cartItemRepository
+                                                        .findByCartOrderByIdAsc(remainingCart)
+                                                        .size());
+                });
+        }
 
-    @AfterEach
-    void cleanup() {
+        private void assertProductStock(Product product, int expectedStock) {
+                transactionTemplate.executeWithoutResult(status -> {
+                        Product persistedProduct = productRepository
+                                        .findById(product.getId())
+                                        .orElseThrow();
 
-        transactionTemplate.executeWithoutResult(status -> {
+                        assertEquals(expectedStock, persistedProduct.getStockQuantity());
+                });
+        }
 
-            for (Long customerId : customerIds) {
+        private void assertCartItemUnchanged(
+                        Cart cart, Product product, int expectedQuantity) {
 
-                // Delete orders and their associated order items
-                orderRepository.deleteAll(
-                        orderRepository.findByUserIdOrderByCreatedAtDesc(customerId));
+                transactionTemplate.executeWithoutResult(status -> {
 
-                // Delete cart items and cart
-                cartRepository.findByUserId(customerId).ifPresent(cart -> {
-                    cartItemRepository.deleteAll(
-                            cartItemRepository.findByCartOrderByIdAsc(cart));
+                        CartItem item = cartItemRepository
+                                        .findByCartOrderByIdAsc(cart)
+                                        .stream()
+                                        .filter(cartItem -> cartItem.getProduct()
+                                                        .getId().equals(product.getId()))
+                                        .findFirst()
+                                        .orElseThrow();
 
-                    cartRepository.delete(cart);
+                        assertEquals(expectedQuantity, item.getQuantity());
+                });
+        }
+
+        @AfterEach
+        void cleanup() {
+
+                transactionTemplate.executeWithoutResult(status -> {
+
+                        for (Long customerId : customerIds) {
+
+                                // Delete orders and their associated order items
+                                orderRepository.deleteAll(
+                                                orderRepository.findByUserIdOrderByCreatedAtDesc(customerId));
+
+                                // Delete cart items and cart
+                                cartRepository.findByUserId(customerId).ifPresent(cart -> {
+                                        cartItemRepository.deleteAll(
+                                                        cartItemRepository.findByCartOrderByIdAsc(cart));
+
+                                        cartRepository.delete(cart);
+                                });
+
+                                // Delete customer addresses
+                                addressRepository.deleteAll(
+                                                addressRepository.findByUserId(customerId));
+                        }
+
+                        entityManager.flush();
+
+                        // Delete customers
+                        userRepository.deleteAllById(customerIds);
+                        entityManager.flush();
+
+                        // Delete products
+                        productRepository.deleteAllById(productIds);
+                        entityManager.flush();
+
+                        // Delete categories
+                        categoryRepository.deleteAllById(categoryIds);
+                        entityManager.flush();
                 });
 
-                // Delete customer addresses
-                addressRepository.deleteAll(
-                        addressRepository.findByUserId(customerId));
-            }
-
-            entityManager.flush();
-
-            // Delete customers
-            userRepository.deleteAllById(customerIds);
-            entityManager.flush();
-
-            // Delete products
-            productRepository.deleteAllById(productIds);
-            entityManager.flush();
-
-            // Delete categories
-            categoryRepository.deleteAllById(categoryIds);
-            entityManager.flush();
-        });
-
-        customerIds.clear();
-        productIds.clear();
-        categoryIds.clear();
-    }
-
-    @Test
-    void checkout_createsOrderAndClearsCart() {
-
-        // Arrange
-        User customer = createCustomer();
-        Address address = createAddress(customer);
-        Cart cart = createCart(customer);
-
-        Product notebook = createProduct(
-                "Notebook", "12.50", 10, true);
-
-        Product pen = createProduct(
-                "Pen", "3.00", 10, true);
-
-        createCartItem(cart, notebook, 2);
-        createCartItem(cart, pen, 3);
-
-        // Act
-        Order createdOrder = checkoutService.checkout(
-                customer.getEmail(), address.getId());
-
-        assertNotNull(createdOrder.getId());
-
-        // Assert using fresh database records
-        transactionTemplate.executeWithoutResult(status -> {
-
-            Order order = orderRepository
-                    .findById(createdOrder.getId())
-                    .orElseThrow();
-
-            // Verify order details
-            assertEquals(customer.getId(), order.getUser().getId());
-            assertEquals(OrderStatus.PENDING, order.getStatus());
-            assertEquals(new BigDecimal("34.00"), order.getSubtotal());
-            assertEquals(new BigDecimal("34.00"), order.getTotal());
-
-            // Verify delivery address snapshot
-            assertEquals(address.getTitle(), order.getShipTitle());
-            assertEquals(address.getCity(), order.getShipCity());
-            assertEquals(address.getDistrict(), order.getShipDistrict());
-            assertEquals(address.getAddressLine(), order.getShipAddressLine());
-            assertEquals(address.getPhone(), order.getShipPhone());
-
-            // Verify order items
-            assertEquals(2, order.getItems().size());
-
-            OrderItem notebookItem = order.getItems().stream()
-                    .filter(item -> item.getProductId().equals(notebook.getId()))
-                    .findFirst()
-                    .orElseThrow();
-
-            assertEquals("Notebook", notebookItem.getProductName());
-            assertEquals(new BigDecimal("12.50"), notebookItem.getUnitPrice());
-            assertEquals(2, notebookItem.getQuantity());
-            assertEquals(new BigDecimal("25.00"), notebookItem.getLineTotal());
-
-            OrderItem penItem = order.getItems().stream()
-                    .filter(item -> item.getProductId().equals(pen.getId()))
-                    .findFirst()
-                    .orElseThrow();
-
-            assertEquals("Pen", penItem.getProductName());
-            assertEquals(new BigDecimal("3.00"), penItem.getUnitPrice());
-            assertEquals(3, penItem.getQuantity());
-            assertEquals(new BigDecimal("9.00"), penItem.getLineTotal());
-
-            // Verify cart record still exists
-            Cart remainingCart = cartRepository
-                    .findByUserId(customer.getId())
-                    .orElseThrow();
-
-            assertEquals(cart.getId(), remainingCart.getId());
-
-            // Verify cart items were cleared
-            assertTrue(cartItemRepository
-                    .findByCartOrderByIdAsc(remainingCart)
-                    .isEmpty());
-            assertEquals(8, productRepository.findById(notebook.getId()).orElseThrow().getStockQuantity());
-            assertEquals(7, productRepository.findById(pen.getId()).orElseThrow().getStockQuantity());
-        });
-    }
-
-    @Test
-    void checkout_onlyOneCustomerCanBuyTheLastUnit() throws Exception {
-        User first = createCustomer();
-        User second = createCustomer();
-        Address firstAddress = createAddress(first);
-        Address secondAddress = createAddress(second);
-        Cart firstCart = createCart(first);
-        Cart secondCart = createCart(second);
-        Product product = createProduct("Last unit", "12.50", 1, true);
-        createCartItem(firstCart, product, 1);
-        createCartItem(secondCart, product, 1);
-
-        CountDownLatch ready = new CountDownLatch(2);
-        CountDownLatch start = new CountDownLatch(1);
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-        try {
-            Future<Boolean> firstResult = executor.submit(() -> attemptCheckout(first, firstAddress, ready, start));
-            Future<Boolean> secondResult = executor.submit(() -> attemptCheckout(second, secondAddress, ready, start));
-            assertTrue(ready.await(10, TimeUnit.SECONDS));
-            start.countDown();
-            boolean firstSucceeded = firstResult.get(20, TimeUnit.SECONDS);
-            boolean secondSucceeded = secondResult.get(20, TimeUnit.SECONDS);
-            assertTrue(firstSucceeded ^ secondSucceeded);
-
-            transactionTemplate.executeWithoutResult(status -> {
-                assertEquals(0, productRepository.findById(product.getId()).orElseThrow().getStockQuantity());
-                assertEquals(firstSucceeded ? 1 : 0,
-                        orderRepository.findByUserIdOrderByCreatedAtDesc(first.getId()).size());
-                assertEquals(secondSucceeded ? 1 : 0,
-                        orderRepository.findByUserIdOrderByCreatedAtDesc(second.getId()).size());
-                assertEquals(firstSucceeded ? 0 : 1, cartItemRepository.findByCartOrderByIdAsc(firstCart).size());
-                assertEquals(secondSucceeded ? 0 : 1, cartItemRepository.findByCartOrderByIdAsc(secondCart).size());
-            });
-        } finally {
-            start.countDown();
-            executor.shutdownNow();
+                customerIds.clear();
+                productIds.clear();
+                categoryIds.clear();
         }
-    }
 
-    @Test
-    void checkout_oppositeCartOrderLocksProductsInTheSameOrder() throws Exception {
-        User first = createCustomer();
-        User second = createCustomer();
-        Address firstAddress = createAddress(first);
-        Address secondAddress = createAddress(second);
-        Cart firstCart = createCart(first);
-        Cart secondCart = createCart(second);
-        Product smallerId = createProduct("First", "12.50", 2, true);
-        Product largerId = createProduct("Second", "3.00", 2, true);
-        createCartItem(firstCart, smallerId, 1);
-        createCartItem(firstCart, largerId, 1);
-        createCartItem(secondCart, largerId, 1);
-        createCartItem(secondCart, smallerId, 1);
+        @Test
+        void checkout_createsOrderAndClearsCart() {
 
-        CountDownLatch ready = new CountDownLatch(2);
-        CountDownLatch start = new CountDownLatch(1);
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-        try {
-            Future<Boolean> firstResult = executor.submit(() -> attemptCheckout(first, firstAddress, ready, start));
-            Future<Boolean> secondResult = executor.submit(() -> attemptCheckout(second, secondAddress, ready, start));
-            assertTrue(ready.await(10, TimeUnit.SECONDS));
-            start.countDown();
-            assertTrue(firstResult.get(20, TimeUnit.SECONDS));
-            assertTrue(secondResult.get(20, TimeUnit.SECONDS));
-            transactionTemplate.executeWithoutResult(status -> {
-                assertEquals(0, productRepository.findById(smallerId.getId()).orElseThrow().getStockQuantity());
-                assertEquals(0, productRepository.findById(largerId.getId()).orElseThrow().getStockQuantity());
-            });
-        } finally {
-            start.countDown();
-            executor.shutdownNow();
+                // Arrange
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
+
+                Product notebook = createProduct(
+                                "Notebook", "12.50", 10, true);
+
+                Product pen = createProduct(
+                                "Pen", "3.00", 10, true);
+
+                createCartItem(cart, notebook, 2);
+                createCartItem(cart, pen, 3);
+
+                // Act
+                Order createdOrder = checkoutService.checkout(
+                                customer.getEmail(), address.getId());
+
+                assertNotNull(createdOrder.getId());
+
+                // Assert using fresh database records
+                transactionTemplate.executeWithoutResult(status -> {
+
+                        Order order = orderRepository
+                                        .findById(createdOrder.getId())
+                                        .orElseThrow();
+
+                        // Verify order details
+                        assertEquals(customer.getId(), order.getUser().getId());
+                        assertEquals(OrderStatus.PENDING, order.getStatus());
+                        assertEquals(new BigDecimal("34.00"), order.getSubtotal());
+                        assertEquals(new BigDecimal("34.00"), order.getTotal());
+
+                        // Verify delivery address snapshot
+                        assertEquals(address.getTitle(), order.getShipTitle());
+                        assertEquals(address.getCity(), order.getShipCity());
+                        assertEquals(address.getDistrict(), order.getShipDistrict());
+                        assertEquals(address.getAddressLine(), order.getShipAddressLine());
+                        assertEquals(address.getPhone(), order.getShipPhone());
+
+                        // Verify order items
+                        assertEquals(2, order.getItems().size());
+
+                        OrderItem notebookItem = order.getItems().stream()
+                                        .filter(item -> item.getProductId().equals(notebook.getId()))
+                                        .findFirst()
+                                        .orElseThrow();
+
+                        assertEquals("Notebook", notebookItem.getProductName());
+                        assertEquals(new BigDecimal("12.50"), notebookItem.getUnitPrice());
+                        assertEquals(2, notebookItem.getQuantity());
+                        assertEquals(new BigDecimal("25.00"), notebookItem.getLineTotal());
+
+                        OrderItem penItem = order.getItems().stream()
+                                        .filter(item -> item.getProductId().equals(pen.getId()))
+                                        .findFirst()
+                                        .orElseThrow();
+
+                        assertEquals("Pen", penItem.getProductName());
+                        assertEquals(new BigDecimal("3.00"), penItem.getUnitPrice());
+                        assertEquals(3, penItem.getQuantity());
+                        assertEquals(new BigDecimal("9.00"), penItem.getLineTotal());
+
+                        // Verify cart record still exists
+                        Cart remainingCart = cartRepository
+                                        .findByUserId(customer.getId())
+                                        .orElseThrow();
+
+                        assertEquals(cart.getId(), remainingCart.getId());
+
+                        // Verify cart items were cleared
+                        assertTrue(cartItemRepository
+                                        .findByCartOrderByIdAsc(remainingCart)
+                                        .isEmpty());
+                        assertEquals(8, productRepository.findById(notebook.getId()).orElseThrow().getStockQuantity());
+                        assertEquals(7, productRepository.findById(pen.getId()).orElseThrow().getStockQuantity());
+                });
         }
-    }
 
-    private boolean attemptCheckout(User customer, Address address,
-            CountDownLatch ready, CountDownLatch start) throws InterruptedException {
-        ready.countDown();
-        if (!start.await(10, TimeUnit.SECONDS)) {
-            throw new IllegalStateException("Concurrent checkout did not start");
+        @Test
+        void checkout_onlyOneCustomerCanBuyTheLastUnit() throws Exception {
+                User first = createCustomer();
+                User second = createCustomer();
+                Address firstAddress = createAddress(first);
+                Address secondAddress = createAddress(second);
+                Cart firstCart = createCart(first);
+                Cart secondCart = createCart(second);
+                Product product = createProduct("Last unit", "12.50", 1, true);
+                createCartItem(firstCart, product, 1);
+                createCartItem(secondCart, product, 1);
+
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                try {
+                        Future<Boolean> firstResult = executor
+                                        .submit(() -> attemptCheckout(first, firstAddress, ready, start));
+                        Future<Boolean> secondResult = executor
+                                        .submit(() -> attemptCheckout(second, secondAddress, ready, start));
+                        assertTrue(ready.await(10, TimeUnit.SECONDS));
+                        start.countDown();
+                        boolean firstSucceeded = firstResult.get(20, TimeUnit.SECONDS);
+                        boolean secondSucceeded = secondResult.get(20, TimeUnit.SECONDS);
+                        assertTrue(firstSucceeded ^ secondSucceeded);
+
+                        transactionTemplate.executeWithoutResult(status -> {
+                                assertEquals(0, productRepository.findById(product.getId()).orElseThrow()
+                                                .getStockQuantity());
+                                assertEquals(firstSucceeded ? 1 : 0,
+                                                orderRepository.findByUserIdOrderByCreatedAtDesc(first.getId()).size());
+                                assertEquals(secondSucceeded ? 1 : 0,
+                                                orderRepository.findByUserIdOrderByCreatedAtDesc(second.getId())
+                                                                .size());
+                                assertEquals(firstSucceeded ? 0 : 1,
+                                                cartItemRepository.findByCartOrderByIdAsc(firstCart).size());
+                                assertEquals(secondSucceeded ? 0 : 1,
+                                                cartItemRepository.findByCartOrderByIdAsc(secondCart).size());
+                        });
+                        // Verify the losing customer's cart remains unchanged
+                        if (firstSucceeded) {
+                                assertCartItemUnchanged(secondCart, product, 1);
+                        } else {
+                                assertCartItemUnchanged(firstCart, product, 1);
+                        }
+                } finally {
+                        start.countDown();
+                        executor.shutdownNow();
+                }
         }
-        try {
-            checkoutService.checkout(customer.getEmail(), address.getId());
-            return true;
-        } catch (ConflictException expected) {
-            return false;
+
+        @Test
+        void checkout_oppositeCartOrderLocksProductsInTheSameOrder() throws Exception {
+                User first = createCustomer();
+                User second = createCustomer();
+                Address firstAddress = createAddress(first);
+                Address secondAddress = createAddress(second);
+                Cart firstCart = createCart(first);
+                Cart secondCart = createCart(second);
+                Product smallerId = createProduct("First", "12.50", 2, true);
+                Product largerId = createProduct("Second", "3.00", 2, true);
+                createCartItem(firstCart, smallerId, 1);
+                createCartItem(firstCart, largerId, 1);
+                createCartItem(secondCart, largerId, 1);
+                createCartItem(secondCart, smallerId, 1);
+
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                try {
+                        Future<Boolean> firstResult = executor
+                                        .submit(() -> attemptCheckout(first, firstAddress, ready, start));
+                        Future<Boolean> secondResult = executor
+                                        .submit(() -> attemptCheckout(second, secondAddress, ready, start));
+                        assertTrue(ready.await(10, TimeUnit.SECONDS));
+                        start.countDown();
+                        assertTrue(firstResult.get(20, TimeUnit.SECONDS));
+                        assertTrue(secondResult.get(20, TimeUnit.SECONDS));
+                        transactionTemplate.executeWithoutResult(status -> {
+
+                                assertEquals(0, productRepository
+                                                .findById(smallerId.getId())
+                                                .orElseThrow()
+                                                .getStockQuantity());
+
+                                assertEquals(0, productRepository
+                                                .findById(largerId.getId())
+                                                .orElseThrow()
+                                                .getStockQuantity());
+
+                                // Both customers must have exactly one order
+                                assertEquals(1, orderRepository
+                                                .findByUserIdOrderByCreatedAtDesc(first.getId())
+                                                .size());
+
+                                assertEquals(1, orderRepository
+                                                .findByUserIdOrderByCreatedAtDesc(second.getId())
+                                                .size());
+
+                                // Both carts must be cleared
+                                assertTrue(cartItemRepository
+                                                .findByCartOrderByIdAsc(firstCart)
+                                                .isEmpty());
+
+                                assertTrue(cartItemRepository
+                                                .findByCartOrderByIdAsc(secondCart)
+                                                .isEmpty());
+                        });
+                } finally {
+                        start.countDown();
+                        executor.shutdownNow();
+                }
         }
-    }
-
-    @Test
-    void checkout_failedSecondProductRestoresEarlierStockAndCart() {
-        User customer = createCustomer();
-        Address address = createAddress(customer);
-        Cart cart = createCart(customer);
-        Product first = createProduct("Available", "12.50", 5, true);
-        Product second = createProduct("Sold out", "3.00", 1, true);
-        // Reverse cart insertion order: product locks must still follow product IDs.
-        createCartItem(cart, second, 2);
-        createCartItem(cart, first, 2);
 
-        assertThrows(ConflictException.class,
-                () -> checkoutService.checkout(customer.getEmail(), address.getId()));
+        private boolean attemptCheckout(User customer, Address address,
+                        CountDownLatch ready, CountDownLatch start) throws InterruptedException {
+                ready.countDown();
+                if (!start.await(10, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("Concurrent checkout did not start");
+                }
+                try {
+                        checkoutService.checkout(customer.getEmail(), address.getId());
+                        return true;
+                } catch (ConflictException expected) {
+                        return false;
+                }
+        }
+
+        @Test
+        void checkout_failedSecondProductRestoresEarlierStockAndCart() {
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
+                Product first = createProduct("Available", "12.50", 5, true);
+                Product second = createProduct("Sold out", "3.00", 1, true);
+                // Reverse cart insertion order: product locks must still follow product IDs.
+                createCartItem(cart, second, 2);
+                createCartItem(cart, first, 2);
+
+                assertThrows(ConflictException.class,
+                                () -> checkoutService.checkout(customer.getEmail(), address.getId()));
+
+                assertCheckoutUnchanged(customer, cart, 2);
+                transactionTemplate.executeWithoutResult(status -> {
+                        assertEquals(5, productRepository.findById(first.getId()).orElseThrow().getStockQuantity());
+                        assertEquals(1, productRepository.findById(second.getId()).orElseThrow().getStockQuantity());
+                });
+                assertCartItemUnchanged(cart, first, 2);
+                assertCartItemUnchanged(cart, second, 2);
+        }
+
+        @Test
+        void checkout_preservesOtherCustomersCartItems() {
+
+                // Arrange: first customer
+                User firstCustomer = createCustomer();
+                Address firstAddress = createAddress(firstCustomer);
+                Cart firstCart = createCart(firstCustomer);
+
+                // Arrange: second customer
+                User secondCustomer = createCustomer();
+                Cart secondCart = createCart(secondCustomer);
+
+                // Create a shared product
+                Product product = createProduct(
+                                "Notebook", "12.50", 20, true);
+
+                CartItem firstItem = createCartItem(firstCart, product, 2);
+                CartItem secondItem = createCartItem(secondCart, product, 3);
 
-        assertCheckoutUnchanged(customer, cart, 2);
-        transactionTemplate.executeWithoutResult(status -> {
-            assertEquals(5, productRepository.findById(first.getId()).orElseThrow().getStockQuantity());
-            assertEquals(1, productRepository.findById(second.getId()).orElseThrow().getStockQuantity());
-        });
-    }
+                // Act: only the first customer checks out
+                Order order = checkoutService.checkout(
+                                firstCustomer.getEmail(),
+                                firstAddress.getId());
 
-    @Test
-    void checkout_preservesOtherCustomersCartItems() {
+                // Assert
+                transactionTemplate.executeWithoutResult(status -> {
 
-        // Arrange: first customer
-        User firstCustomer = createCustomer();
-        Address firstAddress = createAddress(firstCustomer);
-        Cart firstCart = createCart(firstCustomer);
+                        assertNotNull(order.getId());
 
-        // Arrange: second customer
-        User secondCustomer = createCustomer();
-        Cart secondCart = createCart(secondCustomer);
+                        // First customer's cart item was deleted
+                        assertFalse(cartItemRepository.existsById(firstItem.getId()));
 
-        // Create a shared product
-        Product product = createProduct(
-                "Notebook", "12.50", 20, true);
+                        // Second customer's cart item still exists
+                        CartItem remainingItem = cartItemRepository
+                                        .findById(secondItem.getId())
+                                        .orElseThrow();
 
-        CartItem firstItem = createCartItem(firstCart, product, 2);
-        CartItem secondItem = createCartItem(secondCart, product, 3);
+                        assertEquals(3, remainingItem.getQuantity());
+                        assertEquals(product.getId(), remainingItem.getProduct().getId());
+                        assertEquals(secondCart.getId(), remainingItem.getCart().getId());
 
-        // Act: only the first customer checks out
-        Order order = checkoutService.checkout(
-                firstCustomer.getEmail(),
-                firstAddress.getId());
+                        // Verify only the first customer has an order
+                        assertEquals(1, orderRepository
+                                        .findByUserIdOrderByCreatedAtDesc(firstCustomer.getId())
+                                        .size());
 
-        // Assert
-        transactionTemplate.executeWithoutResult(status -> {
+                        assertTrue(orderRepository
+                                        .findByUserIdOrderByCreatedAtDesc(secondCustomer.getId())
+                                        .isEmpty());
+                });
+        }
 
-            assertNotNull(order.getId());
+        @Test
+        void checkout_rejectsCustomerWithoutCart() {
 
-            // First customer's cart item was deleted
-            assertFalse(cartItemRepository.existsById(firstItem.getId()));
+                User customer = createCustomer();
+                Address address = createAddress(customer);
 
-            // Second customer's cart item still exists
-            CartItem remainingItem = cartItemRepository
-                    .findById(secondItem.getId())
-                    .orElseThrow();
+                assertThrows(ConflictException.class, () -> checkoutService.checkout(
+                                customer.getEmail(), address.getId()));
 
-            assertEquals(3, remainingItem.getQuantity());
-            assertEquals(product.getId(), remainingItem.getProduct().getId());
-            assertEquals(secondCart.getId(), remainingItem.getCart().getId());
+                assertTrue(orderRepository
+                                .findByUserIdOrderByCreatedAtDesc(customer.getId())
+                                .isEmpty());
 
-            // Verify only the first customer has an order
-            assertEquals(1, orderRepository
-                    .findByUserIdOrderByCreatedAtDesc(firstCustomer.getId())
-                    .size());
+                assertTrue(cartRepository
+                                .findByUserId(customer.getId())
+                                .isEmpty());
+        }
 
-            assertTrue(orderRepository
-                    .findByUserIdOrderByCreatedAtDesc(secondCustomer.getId())
-                    .isEmpty());
-        });
-    }
+        @Test
+        void checkout_rejectsEmptyCart() {
 
-    @Test
-    void checkout_rejectsCustomerWithoutCart() {
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-        User customer = createCustomer();
-        Address address = createAddress(customer);
+                assertThrows(ConflictException.class, () -> checkoutService.checkout(
+                                customer.getEmail(), address.getId()));
 
-        assertThrows(ConflictException.class, () -> checkoutService.checkout(
-                customer.getEmail(), address.getId()));
+                assertCheckoutUnchanged(customer, cart, 0);
+        }
 
-        assertTrue(orderRepository
-                .findByUserIdOrderByCreatedAtDesc(customer.getId())
-                .isEmpty());
+        @Test
+        void checkout_rejectsAnotherCustomersAddress() {
 
-        assertTrue(cartRepository
-                .findByUserId(customer.getId())
-                .isEmpty());
-    }
+                User customer = createCustomer();
+                User anotherCustomer = createCustomer();
 
-    @Test
-    void checkout_rejectsEmptyCart() {
+                Address foreignAddress = createAddress(anotherCustomer);
 
-        User customer = createCustomer();
-        Address address = createAddress(customer);
-        Cart cart = createCart(customer);
+                Cart cart = createCart(customer);
 
-        assertThrows(ConflictException.class, () -> checkoutService.checkout(
-                customer.getEmail(), address.getId()));
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-        assertCheckoutUnchanged(customer, cart, 0);
-    }
+                createCartItem(cart, product, 2);
 
-    @Test
-    void checkout_rejectsAnotherCustomersAddress() {
+                assertThrows(ResourceNotFoundException.class, () -> checkoutService.checkout(
+                                customer.getEmail(), foreignAddress.getId()));
 
-        User customer = createCustomer();
-        User anotherCustomer = createCustomer();
+                assertCheckoutUnchanged(customer, cart, 1);
 
-        Address foreignAddress = createAddress(anotherCustomer);
+                assertProductStock(product, 10);
+                assertCartItemUnchanged(cart, product, 2);
+        }
 
-        Cart cart = createCart(customer);
+        @Test
+        void checkout_rejectsNonexistentAddress() {
 
-        Product product = createProduct(
-                "Notebook", "12.50", 10, true);
+                User customer = createCustomer();
+                Cart cart = createCart(customer);
 
-        createCartItem(cart, product, 2);
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-        assertThrows(ResourceNotFoundException.class, () -> checkoutService.checkout(
-                customer.getEmail(), foreignAddress.getId()));
+                createCartItem(cart, product, 2);
 
-        assertCheckoutUnchanged(customer, cart, 1);
-    }
+                assertThrows(ResourceNotFoundException.class, () -> checkoutService.checkout(
+                                customer.getEmail(), Long.MAX_VALUE));
 
-    @Test
-    void checkout_rejectsNonexistentAddress() {
+                assertCheckoutUnchanged(customer, cart, 1);
+        }
 
-        User customer = createCustomer();
-        Cart cart = createCart(customer);
+        @Test
+        void checkout_rejectsInvalidDeliveryAddressId() {
 
-        Product product = createProduct(
-                "Notebook", "12.50", 10, true);
+                User customer = createCustomer();
+                Cart cart = createCart(customer);
 
-        createCartItem(cart, product, 2);
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-        assertThrows(ResourceNotFoundException.class, () -> checkoutService.checkout(
-                customer.getEmail(), Long.MAX_VALUE));
+                createCartItem(cart, product, 2);
 
-        assertCheckoutUnchanged(customer, cart, 1);
-    }
+                assertThrows(IllegalArgumentException.class, () -> checkoutService.checkout(customer.getEmail(), null));
 
-    @Test
-    void checkout_rejectsInvalidDeliveryAddressId() {
+                assertThrows(IllegalArgumentException.class, () -> checkoutService.checkout(customer.getEmail(), 0L));
 
-        User customer = createCustomer();
-        Cart cart = createCart(customer);
+                assertThrows(IllegalArgumentException.class, () -> checkoutService.checkout(customer.getEmail(), -1L));
 
-        Product product = createProduct(
-                "Notebook", "12.50", 10, true);
+                assertCheckoutUnchanged(customer, cart, 1);
+        }
 
-        createCartItem(cart, product, 2);
+        @Test
+        void checkout_rejectsIncompleteDeliveryAddress() {
 
-        assertThrows(IllegalArgumentException.class, () -> checkoutService.checkout(customer.getEmail(), null));
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-        assertThrows(IllegalArgumentException.class, () -> checkoutService.checkout(customer.getEmail(), 0L));
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-        assertThrows(IllegalArgumentException.class, () -> checkoutService.checkout(customer.getEmail(), -1L));
+                createCartItem(cart, product, 2);
 
-        assertCheckoutUnchanged(customer, cart, 1);
-    }
+                // Remove required shipping information
+                address.setPhone(null);
+                addressRepository.save(address);
 
-    @Test
-void checkout_rejectsIncompleteDeliveryAddress() {
+                ConflictException exception = assertThrows(
+                                ConflictException.class, () -> checkoutService.checkout(
+                                                customer.getEmail(), address.getId()));
 
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
+                assertEquals(
+                                "Delivery address must include a phone number",
+                                exception.getMessage());
 
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
+                assertCheckoutUnchanged(customer, cart, 1);
+        }
 
-    createCartItem(cart, product, 2);
+        @Test
+        void checkout_rejectsInactiveProduct() {
 
-    // Remove required shipping information
-    address.setPhone(null);
-    addressRepository.save(address);
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-    ConflictException exception = assertThrows(
-            ConflictException.class, () ->
-                    checkoutService.checkout(
-                            customer.getEmail(), address.getId()));
+                Product activeProduct = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-    assertEquals(
-            "Delivery address must include a phone number",
-            exception.getMessage());
+                Product inactiveProduct = createProduct(
+                                "Pen", "3.00", 10, false);
 
-    assertCheckoutUnchanged(customer, cart, 1);
-}
-@Test
-void checkout_rejectsInactiveProduct() {
+                createCartItem(cart, activeProduct, 2);
+                createCartItem(cart, inactiveProduct, 3);
 
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
+                assertThrows(ConflictException.class, () -> checkoutService.checkout(
+                                customer.getEmail(), address.getId()));
 
-    Product activeProduct = createProduct(
-            "Notebook", "12.50", 10, true);
+                assertCheckoutUnchanged(customer, cart, 2);
+                assertProductStock(activeProduct, 10);
+                assertProductStock(inactiveProduct, 10);
 
-    Product inactiveProduct = createProduct(
-            "Pen", "3.00", 10, false);
+                assertCartItemUnchanged(cart, activeProduct, 2);
+                assertCartItemUnchanged(cart, inactiveProduct, 3);
+        }
 
-    createCartItem(cart, activeProduct, 2);
-    createCartItem(cart, inactiveProduct, 3);
+        @Test
+        void checkout_rejectsInsufficientStock() {
 
-    assertThrows(ConflictException.class, () ->
-            checkoutService.checkout(
-                    customer.getEmail(), address.getId()));
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-    assertCheckoutUnchanged(customer, cart, 2);
-}
+                Product product = createProduct(
+                                "Notebook", "12.50", 2, true);
 
-@Test
-void checkout_rejectsInsufficientStock() {
+                createCartItem(cart, product, 5);
 
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
+                assertThrows(ConflictException.class, () -> checkoutService.checkout(
+                                customer.getEmail(), address.getId()));
 
-    Product product = createProduct(
-            "Notebook", "12.50", 2, true);
+                assertCheckoutUnchanged(customer, cart, 1);
+        }
 
-    createCartItem(cart, product, 5);
+        @Test
+        void checkout_rejectsDisabledCustomer() {
 
-    assertThrows(ConflictException.class, () ->
-            checkoutService.checkout(
-                    customer.getEmail(), address.getId()));
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-    assertCheckoutUnchanged(customer, cart, 1);
-}
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-@Test
-void checkout_rejectsDisabledCustomer() {
+                createCartItem(cart, product, 2);
 
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
+                customer.setEnabled(false);
+                userRepository.save(customer);
 
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
+                assertThrows(AccessDeniedException.class, () -> checkoutService.checkout(
+                                customer.getEmail(), address.getId()));
 
-    createCartItem(cart, product, 2);
+                assertCheckoutUnchanged(customer, cart, 1);
+        }
 
-    customer.setEnabled(false);
-    userRepository.save(customer);
+        @Test
+        void checkout_rejectsAdminAccount() {
 
-    assertThrows(AccessDeniedException.class, () ->
-            checkoutService.checkout(
-                    customer.getEmail(), address.getId()));
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-    assertCheckoutUnchanged(customer, cart, 1);
-}
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-@Test
-void checkout_rejectsAdminAccount() {
+                createCartItem(cart, product, 2);
 
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
+                customer.setRole(Role.ADMIN);
+                userRepository.save(customer);
 
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
+                assertThrows(AccessDeniedException.class, () -> checkoutService.checkout(
+                                customer.getEmail(), address.getId()));
 
-    createCartItem(cart, product, 2);
+                assertCheckoutUnchanged(customer, cart, 1);
+        }
 
-    customer.setRole(Role.ADMIN);
-    userRepository.save(customer);
+        @Test
+        void checkout_rejectsNonexistentCustomer() {
 
-    assertThrows(AccessDeniedException.class, () ->
-            checkoutService.checkout(
-                    customer.getEmail(), address.getId()));
+                assertThrows(AccessDeniedException.class, () -> checkoutService.checkout(
+                                UUID.randomUUID() + "@example.com", 1L));
+        }
 
-    assertCheckoutUnchanged(customer, cart, 1);
-}
+        @Test
+        void checkout_usesCurrentDatabasePrice() {
 
-@Test
-void checkout_rejectsNonexistentCustomer() {
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-    assertThrows(AccessDeniedException.class, () ->
-            checkoutService.checkout(
-                    UUID.randomUUID() + "@example.com", 1L));
-}
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-@Test
-void checkout_usesCurrentDatabasePrice() {
+                createCartItem(cart, product, 2);
 
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
+                // Change product price after adding it to the cart
+                product.setPrice(new BigDecimal("15.00"));
+                productRepository.save(product);
 
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
+                Order createdOrder = checkoutService.checkout(
+                                customer.getEmail(), address.getId());
 
-    createCartItem(cart, product, 2);
+                transactionTemplate.executeWithoutResult(status -> {
 
-    // Change product price after adding it to the cart
-    product.setPrice(new BigDecimal("15.00"));
-    productRepository.save(product);
+                        Order order = orderRepository
+                                        .findById(createdOrder.getId())
+                                        .orElseThrow();
 
-    Order createdOrder = checkoutService.checkout(
-            customer.getEmail(), address.getId());
+                        OrderItem item = order.getItems().get(0);
 
-    transactionTemplate.executeWithoutResult(status -> {
+                        assertEquals(new BigDecimal("15.00"), item.getUnitPrice());
+                        assertEquals(new BigDecimal("30.00"), item.getLineTotal());
+                        assertEquals(new BigDecimal("30.00"), order.getSubtotal());
+                        assertEquals(new BigDecimal("30.00"), order.getTotal());
+                });
+                assertProductStock(product, 8);
 
-        Order order = orderRepository
-                .findById(createdOrder.getId())
-                .orElseThrow();
+                transactionTemplate.executeWithoutResult(status -> {
+                        assertTrue(cartItemRepository
+                                        .findByCartOrderByIdAsc(cart)
+                                        .isEmpty());
+                });
+        }
 
-        OrderItem item = order.getItems().get(0);
+        @Test
+        void checkout_acceptsQuantityEqualToStock() {
 
-        assertEquals(new BigDecimal("15.00"), item.getUnitPrice());
-        assertEquals(new BigDecimal("30.00"), item.getLineTotal());
-        assertEquals(new BigDecimal("30.00"), order.getSubtotal());
-        assertEquals(new BigDecimal("30.00"), order.getTotal());
-    });
-}
-@Test
-void checkout_acceptsQuantityEqualToStock() {
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
+                Product product = createProduct(
+                                "Notebook", "12.50", 5, true);
 
-    Product product = createProduct(
-            "Notebook", "12.50", 5, true);
-
-    createCartItem(cart, product, 5);
-
-    Order order = checkoutService.checkout(
-            customer.getEmail(), address.getId());
-
-    assertNotNull(order.getId());
-
-    assertEquals(new BigDecimal("62.50"), order.getTotal());
-
-    assertFalse(orderRepository
-            .findByUserIdOrderByCreatedAtDesc(customer.getId())
-            .isEmpty());
-
-    assertTrue(cartItemRepository
-            .findByCartOrderByIdAsc(cart)
-            .isEmpty());
-}
-
-@Test
-void checkout_preservesProductSnapshotAfterProductUpdate() {
-
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
-
-    Product product = createProduct(
-            "Original Notebook", "12.50", 10, true);
-
-    createCartItem(cart, product, 2);
-
-    Order createdOrder = checkoutService.checkout(
-            customer.getEmail(), address.getId());
-
-    // Update the original product
-    product.setName("Updated Notebook");
-    product.setPrice(new BigDecimal("20.00"));
-    productRepository.save(product);
-
-    transactionTemplate.executeWithoutResult(status -> {
-
-        Order order = orderRepository
-                .findById(createdOrder.getId())
-                .orElseThrow();
-
-        OrderItem item = order.getItems().get(0);
-
-        assertEquals(product.getId(), item.getProductId());
-        assertEquals("Original Notebook", item.getProductName());
-        assertEquals(new BigDecimal("12.50"), item.getUnitPrice());
-        assertEquals(2, item.getQuantity());
-        assertEquals(new BigDecimal("25.00"), item.getLineTotal());
-        assertEquals(new BigDecimal("25.00"), order.getTotal());
-    });
-}
-
-@Test
-void checkout_preservesAddressSnapshotAfterAddressUpdate() {
-
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
-
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
-
-    createCartItem(cart, product, 2);
-
-    Order createdOrder = checkoutService.checkout(
-            customer.getEmail(), address.getId());
-
-    // Update the original address
-    address.setTitle("Office");
-    address.setCity("Darkhan");
-    address.setDistrict("New District");
-    address.setAddressLine("New Street 456");
-    address.setPhone("88112233");
-
-    addressRepository.save(address);
-
-    transactionTemplate.executeWithoutResult(status -> {
-
-        Order order = orderRepository
-                .findById(createdOrder.getId())
-                .orElseThrow();
-
-        assertEquals("Home", order.getShipTitle());
-        assertEquals("Ulaanbaatar", order.getShipCity());
-        assertEquals("Bayanzurkh", order.getShipDistrict());
-        assertEquals("Test Street 123", order.getShipAddressLine());
-        assertEquals("99112233", order.getShipPhone());
-    });
-}
-
-@Test
-void checkout_preservesAddressSnapshotAfterAddressDeletion() {
-
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
-
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
-
-    createCartItem(cart, product, 2);
-
-    Order createdOrder = checkoutService.checkout(
-            customer.getEmail(), address.getId());
-
-    addressRepository.deleteById(address.getId());
-
-    assertFalse(addressRepository.existsById(address.getId()));
-
-    transactionTemplate.executeWithoutResult(status -> {
-
-        Order order = orderRepository
-                .findById(createdOrder.getId())
-                .orElseThrow();
-
-        assertEquals("Home", order.getShipTitle());
-        assertEquals("Ulaanbaatar", order.getShipCity());
-        assertEquals("Bayanzurkh", order.getShipDistrict());
-        assertEquals("Test Street 123", order.getShipAddressLine());
-        assertEquals("99112233", order.getShipPhone());
-    });
-}
-@Test
-void checkout_rejectsRepeatedCheckoutAfterCartCleared() {
-
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
-
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
-
-    createCartItem(cart, product, 2);
-
-    // First checkout succeeds
-    Order firstOrder = checkoutService.checkout(
-            customer.getEmail(), address.getId());
-
-    assertNotNull(firstOrder.getId());
-
-    // Second checkout fails because the cart is empty
-    assertThrows(ConflictException.class, () ->
-            checkoutService.checkout(
-                    customer.getEmail(), address.getId()));
-
-    transactionTemplate.executeWithoutResult(status -> {
-
-        List<Order> orders = orderRepository
-                .findByUserIdOrderByCreatedAtDesc(customer.getId());
-
-        assertEquals(1, orders.size());
-        assertEquals(firstOrder.getId(), orders.get(0).getId());
-
-        assertTrue(cartItemRepository
-                .findByCartOrderByIdAsc(cart)
-                .isEmpty());
-    });
-}
-
-@Test
-void checkout_rollsBackWhenOrderPersistenceFails() {
-
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
-
-    Product product = createProduct(
-            "Expensive Product",
-            "6000000000.00",
-            10,
-            true);
-
-    CartItem cartItem = createCartItem(cart, product, 2);
-
-    assertThrows(DataIntegrityViolationException.class, () ->
-            checkoutService.checkout(
-                    customer.getEmail(), address.getId()));
-
-    assertCheckoutUnchanged(customer, cart, 1);
-
-    transactionTemplate.executeWithoutResult(status -> {
-
-        CartItem remainingItem = cartItemRepository
-                .findById(cartItem.getId())
-                .orElseThrow();
-
-        assertEquals(2, remainingItem.getQuantity());
-        assertEquals(product.getId(),
-                remainingItem.getProduct().getId());
-    });
-}
-
-@Test
-void checkout_rollsBackOrderAndCartDeletionWhenTransactionFails() {
-
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
-
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
-
-    CartItem cartItem = createCartItem(cart, product, 2);
-
-    assertThrows(IllegalStateException.class, () ->
-
-            transactionTemplate.executeWithoutResult(status -> {
+                createCartItem(cart, product, 5);
 
                 Order order = checkoutService.checkout(
-                        customer.getEmail(), address.getId());
+                                customer.getEmail(), address.getId());
 
-                // Force pending SQL operations to execute
-                entityManager.flush();
-                entityManager.clear();
+                assertNotNull(order.getId());
 
-                // Verify changes exist inside the transaction
-                assertTrue(orderRepository.existsById(order.getId()));
+                assertEquals(new BigDecimal("62.50"), order.getTotal());
 
-                assertFalse(cartItemRepository
+                assertFalse(orderRepository
+                                .findByUserIdOrderByCreatedAtDesc(customer.getId())
+                                .isEmpty());
 
-                        .existsById(cartItem.getId()));
+                assertTrue(cartItemRepository
+                                .findByCartOrderByIdAsc(cart)
+                                .isEmpty());
+        }
 
-                // Simulate a failure before transaction commit
-                throw new IllegalStateException(
-                        "Simulated transaction failure");
-            })
-    );
+        @Test
+        void checkout_preservesProductSnapshotAfterProductUpdate() {
 
-    // Verify rollback using a separate transaction
-    assertCheckoutUnchanged(customer, cart, 1);
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-    transactionTemplate.executeWithoutResult(status -> {
+                Product product = createProduct(
+                                "Original Notebook", "12.50", 10, true);
 
-        CartItem restoredItem = cartItemRepository
-                .findById(cartItem.getId())
-                .orElseThrow();
+                createCartItem(cart, product, 2);
 
-        assertEquals(2, restoredItem.getQuantity());
-        assertEquals(product.getId(),
-                restoredItem.getProduct().getId());
-    });
-}
+                Order createdOrder = checkoutService.checkout(
+                                customer.getEmail(), address.getId());
 
-@Test
-    void checkout_rollsBackWhenCartDeletionFails() {
+                // Update the original product
+                product.setName("Updated Notebook");
+                product.setPrice(new BigDecimal("20.00"));
+                productRepository.save(product);
 
-    // Arrange
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
+                transactionTemplate.executeWithoutResult(status -> {
 
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
+                        Order order = orderRepository
+                                        .findById(createdOrder.getId())
+                                        .orElseThrow();
 
-    CartItem cartItem = createCartItem(cart, product, 2);
+                        OrderItem item = order.getItems().get(0);
 
-   doAnswer(invocation -> {
+                        assertEquals(product.getId(), item.getProductId());
+                        assertEquals("Original Notebook", item.getProductName());
+                        assertEquals(new BigDecimal("12.50"), item.getUnitPrice());
+                        assertEquals(2, item.getQuantity());
+                        assertEquals(new BigDecimal("25.00"), item.getLineTotal());
+                        assertEquals(new BigDecimal("25.00"), order.getTotal());
+                });
+        }
 
-    List<CartItem> items = invocation.getArgument(0);
+        @Test
+        void checkout_preservesAddressSnapshotAfterAddressUpdate() {
 
-    for (CartItem item : items) {
-        cartItemRepository.delete(item);
-    }
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-    entityManager.flush();
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-    throw new IllegalStateException(
-            "Simulated cart deletion failure");
+                createCartItem(cart, product, 2);
 
-}).when(cartItemRepository).deleteAll(anyList());
+                Order createdOrder = checkoutService.checkout(
+                                customer.getEmail(), address.getId());
 
-    try {
+                // Update the original address
+                address.setTitle("Office");
+                address.setCity("Darkhan");
+                address.setDistrict("New District");
+                address.setAddressLine("New Street 456");
+                address.setPhone("88112233");
 
-        // Act
-        IllegalStateException exception = assertThrows(
-        IllegalStateException.class, () ->
-                checkoutService.checkout(
-                        customer.getEmail(), address.getId()));
+                addressRepository.save(address);
 
-assertEquals(
-        "Simulated cart deletion failure",
-        exception.getMessage());
+                transactionTemplate.executeWithoutResult(status -> {
 
-    } finally {
+                        Order order = orderRepository
+                                        .findById(createdOrder.getId())
+                                        .orElseThrow();
 
-        // Remove simulated failure before cleanup
-        reset(cartItemRepository);
-    }
+                        assertEquals("Home", order.getShipTitle());
+                        assertEquals("Ulaanbaatar", order.getShipCity());
+                        assertEquals("Bayanzurkh", order.getShipDistrict());
+                        assertEquals("Test Street 123", order.getShipAddressLine());
+                        assertEquals("99112233", order.getShipPhone());
+                });
+        }
 
-    // Assert
-    assertCheckoutUnchanged(customer, cart, 1);
-    assertEquals(10, productRepository.findById(product.getId()).orElseThrow().getStockQuantity());
+        @Test
+        void checkout_preservesAddressSnapshotAfterAddressDeletion() {
 
-    transactionTemplate.executeWithoutResult(status -> {
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-        CartItem restoredItem = cartItemRepository
-                .findById(cartItem.getId())
-                .orElseThrow();
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-        assertEquals(2, restoredItem.getQuantity());
-        assertEquals(product.getId(),
-                restoredItem.getProduct().getId());
-    });
-}
-@Test
-void checkout_preventsModificationOfPersistedAddressSnapshot() {
+                createCartItem(cart, product, 2);
 
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
+                Order createdOrder = checkoutService.checkout(
+                                customer.getEmail(), address.getId());
 
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
+                addressRepository.deleteById(address.getId());
 
-    createCartItem(cart, product, 2);
+                assertFalse(addressRepository.existsById(address.getId()));
 
-    Order createdOrder = checkoutService.checkout(
-            customer.getEmail(), address.getId());
+                transactionTemplate.executeWithoutResult(status -> {
 
-    transactionTemplate.executeWithoutResult(status -> {
+                        Order order = orderRepository
+                                        .findById(createdOrder.getId())
+                                        .orElseThrow();
 
-        Order order = orderRepository
-                .findById(createdOrder.getId())
-                .orElseThrow();
+                        assertEquals("Home", order.getShipTitle());
+                        assertEquals("Ulaanbaatar", order.getShipCity());
+                        assertEquals("Bayanzurkh", order.getShipDistrict());
+                        assertEquals("Test Street 123", order.getShipAddressLine());
+                        assertEquals("99112233", order.getShipPhone());
+                });
+        }
 
-        assertThrows(IllegalStateException.class,
-                () -> order.setShipTitle("Office"));
+        @Test
+        void checkout_rejectsRepeatedCheckoutAfterCartCleared() {
 
-        assertThrows(IllegalStateException.class,
-                () -> order.setShipCity("Darkhan"));
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-        assertThrows(IllegalStateException.class,
-                () -> order.setShipDistrict("New District"));
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-        assertThrows(IllegalStateException.class,
-                () -> order.setShipAddressLine("New Address"));
+                createCartItem(cart, product, 2);
 
-        assertThrows(IllegalStateException.class,
-                () -> order.setShipPhone("88112233"));
+                // First checkout succeeds
+                Order firstOrder = checkoutService.checkout(
+                                customer.getEmail(), address.getId());
 
-        assertEquals("Home", order.getShipTitle());
-        assertEquals("Ulaanbaatar", order.getShipCity());
-        assertEquals("Bayanzurkh", order.getShipDistrict());
-        assertEquals("Test Street 123", order.getShipAddressLine());
-        assertEquals("99112233", order.getShipPhone());
-    });
-}
+                assertNotNull(firstOrder.getId());
 
-@Test
-void checkout_preventsChangingPersistedOrderOwner() {
+                // Second checkout fails because the cart is empty
+                assertThrows(ConflictException.class, () -> checkoutService.checkout(
+                                customer.getEmail(), address.getId()));
 
-    User customer = createCustomer();
-    User anotherCustomer = createCustomer();
+                transactionTemplate.executeWithoutResult(status -> {
 
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
+                        List<Order> orders = orderRepository
+                                        .findByUserIdOrderByCreatedAtDesc(customer.getId());
 
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
+                        assertEquals(1, orders.size());
+                        assertEquals(firstOrder.getId(), orders.get(0).getId());
 
-    createCartItem(cart, product, 2);
+                        assertTrue(cartItemRepository
+                                        .findByCartOrderByIdAsc(cart)
+                                        .isEmpty());
+                });
+        }
 
-    Order createdOrder = checkoutService.checkout(
-            customer.getEmail(), address.getId());
+        @Test
+        void checkout_rollsBackWhenOrderPersistenceFails() {
 
-    transactionTemplate.executeWithoutResult(status -> {
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-        Order order = orderRepository
-                .findById(createdOrder.getId())
-                .orElseThrow();
+                Product product = createProduct(
+                                "Expensive Product",
+                                "6000000000.00",
+                                10,
+                                true);
 
-        assertThrows(IllegalStateException.class,
-                () -> order.setUser(anotherCustomer));
+                CartItem cartItem = createCartItem(cart, product, 2);
 
-        assertEquals(customer.getId(), order.getUser().getId());
-    });
-}
+                assertThrows(DataIntegrityViolationException.class, () -> checkoutService.checkout(
+                                customer.getEmail(), address.getId()));
 
-@Test
-void checkout_preventsModificationOfPersistedItemsAndTotals() {
+                assertCheckoutUnchanged(customer, cart, 1);
+                assertProductStock(product, 10);
 
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
+                transactionTemplate.executeWithoutResult(status -> {
 
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
+                        CartItem remainingItem = cartItemRepository
+                                        .findById(cartItem.getId())
+                                        .orElseThrow();
 
-    createCartItem(cart, product, 2);
+                        assertEquals(2, remainingItem.getQuantity());
+                        assertEquals(product.getId(),
+                                        remainingItem.getProduct().getId());
+                });
+        }
 
-    Order createdOrder = checkoutService.checkout(
-            customer.getEmail(), address.getId());
+        @Test
+        void checkout_rollsBackOrderAndCartDeletionWhenTransactionFails() {
 
-    transactionTemplate.executeWithoutResult(status -> {
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-        Order order = orderRepository
-                .findById(createdOrder.getId())
-                .orElseThrow();
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-        OrderItem additionalItem = OrderItem.from(product, 3);
+                CartItem cartItem = createCartItem(cart, product, 2);
 
-        // Cannot add another item
-        assertThrows(IllegalStateException.class,
-                () -> order.addItem(additionalItem));
+                assertThrows(IllegalStateException.class, () ->
 
-        // Cannot remove existing items
-        assertThrows(UnsupportedOperationException.class,
-                () -> order.getItems().clear());
+                transactionTemplate.executeWithoutResult(status -> {
 
-        // Cannot modify the collection directly
-        assertThrows(UnsupportedOperationException.class,
-                () -> order.getItems().add(additionalItem));
+                        Order order = checkoutService.checkout(
+                                        customer.getEmail(), address.getId());
 
-        // Cannot recalculate persisted totals
-        assertThrows(IllegalStateException.class,
-                () -> order.recalcTotals());
+                        // Force pending SQL operations to execute
+                        entityManager.flush();
+                        entityManager.clear();
 
-        assertEquals(1, order.getItems().size());
-        assertEquals(new BigDecimal("25.00"), order.getSubtotal());
-        assertEquals(new BigDecimal("25.00"), order.getTotal());
-    });
-}
+                        // Verify order exists inside the transaction
+                        assertTrue(orderRepository.existsById(order.getId()));
 
-@Test
-void checkout_allowsOrderStatusUpdateWithoutChangingSnapshots() {
+                        // Verify cart item was deleted
+                        assertFalse(cartItemRepository
+                                        .existsById(cartItem.getId()));
 
-    User customer = createCustomer();
-    Address address = createAddress(customer);
-    Cart cart = createCart(customer);
+                        // Verify stock was decremented
+                        assertEquals(8, productRepository
+                                        .findById(product.getId())
+                                        .orElseThrow()
+                                        .getStockQuantity());
 
-    Product product = createProduct(
-            "Notebook", "12.50", 10, true);
+                        // Simulate a failure before transaction commit
+                        throw new IllegalStateException(
+                                        "Simulated transaction failure");
+                }));
 
-    createCartItem(cart, product, 2);
+                // Verify order and cart rollback
+                assertCheckoutUnchanged(customer, cart, 1);
 
-    Order createdOrder = checkoutService.checkout(
-            customer.getEmail(), address.getId());
+                // Verify inventory rollback
+                assertProductStock(product, 10);
 
-    // Update order status in a separate transaction
-    transactionTemplate.executeWithoutResult(status -> {
+                // Verify original cart item was restored
+                transactionTemplate.executeWithoutResult(status -> {
 
-        Order order = orderRepository
-                .findById(createdOrder.getId())
-                .orElseThrow();
+                        CartItem restoredItem = cartItemRepository
+                                        .findById(cartItem.getId())
+                                        .orElseThrow();
 
-        assertEquals(OrderStatus.PENDING, order.getStatus());
+                        assertEquals(2, restoredItem.getQuantity());
+                        assertEquals(product.getId(),
+                                        restoredItem.getProduct().getId());
+                });
+        }
 
-        order.setStatus(OrderStatus.CONFIRMED);
+        @Test
+        void checkout_rollsBackWhenCartDeletionFails() {
 
-        orderRepository.saveAndFlush(order);
-    });
+                // Arrange
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
 
-    // Retrieve fresh records from PostgreSQL
-    transactionTemplate.executeWithoutResult(status -> {
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
 
-        Order order = orderRepository
-                .findById(createdOrder.getId())
-                .orElseThrow();
+                CartItem cartItem = createCartItem(cart, product, 2);
 
-        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
+                doAnswer(invocation -> {
 
-        // Verify totals remain unchanged
-        assertEquals(new BigDecimal("25.00"), order.getSubtotal());
-        assertEquals(new BigDecimal("25.00"), order.getTotal());
+                        List<CartItem> items = invocation.getArgument(0);
 
-        // Verify shipping snapshot remains unchanged
-        assertEquals("Home", order.getShipTitle());
-        assertEquals("Ulaanbaatar", order.getShipCity());
-        assertEquals("Bayanzurkh", order.getShipDistrict());
-        assertEquals("Test Street 123", order.getShipAddressLine());
-        assertEquals("99112233", order.getShipPhone());
+                        for (CartItem item : items) {
+                                cartItemRepository.delete(item);
+                        }
 
-        // Verify product snapshot remains unchanged
-        assertEquals(1, order.getItems().size());
+                        entityManager.flush();
 
-        OrderItem item = order.getItems().get(0);
+                        throw new IllegalStateException(
+                                        "Simulated cart deletion failure");
 
-        assertEquals("Notebook", item.getProductName());
-        assertEquals(new BigDecimal("12.50"), item.getUnitPrice());
-        assertEquals(2, item.getQuantity());
-        assertEquals(new BigDecimal("25.00"), item.getLineTotal());
-    });
-}
+                }).when(cartItemRepository).deleteAll(anyList());
 
+                try {
+
+                        // Act
+                        IllegalStateException exception = assertThrows(
+                                        IllegalStateException.class, () -> checkoutService.checkout(
+                                                        customer.getEmail(), address.getId()));
+
+                        assertEquals(
+                                        "Simulated cart deletion failure",
+                                        exception.getMessage());
+
+                } finally {
+
+                        // Remove simulated failure before cleanup
+                        reset(cartItemRepository);
+                }
+
+                // Assert
+                assertCheckoutUnchanged(customer, cart, 1);
+                assertEquals(10, productRepository.findById(product.getId()).orElseThrow().getStockQuantity());
+
+                transactionTemplate.executeWithoutResult(status -> {
+
+                        CartItem restoredItem = cartItemRepository
+                                        .findById(cartItem.getId())
+                                        .orElseThrow();
+
+                        assertEquals(2, restoredItem.getQuantity());
+                        assertEquals(product.getId(),
+                                        restoredItem.getProduct().getId());
+                });
+        }
+
+        @Test
+        void checkout_preventsModificationOfPersistedAddressSnapshot() {
+
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
+
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
+
+                createCartItem(cart, product, 2);
+
+                Order createdOrder = checkoutService.checkout(
+                                customer.getEmail(), address.getId());
+
+                transactionTemplate.executeWithoutResult(status -> {
+
+                        Order order = orderRepository
+                                        .findById(createdOrder.getId())
+                                        .orElseThrow();
+
+                        assertThrows(IllegalStateException.class,
+                                        () -> order.setShipTitle("Office"));
+
+                        assertThrows(IllegalStateException.class,
+                                        () -> order.setShipCity("Darkhan"));
+
+                        assertThrows(IllegalStateException.class,
+                                        () -> order.setShipDistrict("New District"));
+
+                        assertThrows(IllegalStateException.class,
+                                        () -> order.setShipAddressLine("New Address"));
+
+                        assertThrows(IllegalStateException.class,
+                                        () -> order.setShipPhone("88112233"));
+
+                        assertEquals("Home", order.getShipTitle());
+                        assertEquals("Ulaanbaatar", order.getShipCity());
+                        assertEquals("Bayanzurkh", order.getShipDistrict());
+                        assertEquals("Test Street 123", order.getShipAddressLine());
+                        assertEquals("99112233", order.getShipPhone());
+                });
+        }
+
+        @Test
+        void checkout_preventsChangingPersistedOrderOwner() {
+
+                User customer = createCustomer();
+                User anotherCustomer = createCustomer();
+
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
+
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
+
+                createCartItem(cart, product, 2);
+
+                Order createdOrder = checkoutService.checkout(
+                                customer.getEmail(), address.getId());
+
+                transactionTemplate.executeWithoutResult(status -> {
+
+                        Order order = orderRepository
+                                        .findById(createdOrder.getId())
+                                        .orElseThrow();
+
+                        assertThrows(IllegalStateException.class,
+                                        () -> order.setUser(anotherCustomer));
+
+                        assertEquals(customer.getId(), order.getUser().getId());
+                });
+        }
+
+        @Test
+        void checkout_preventsModificationOfPersistedItemsAndTotals() {
+
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
+
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
+
+                createCartItem(cart, product, 2);
+
+                Order createdOrder = checkoutService.checkout(
+                                customer.getEmail(), address.getId());
+
+                transactionTemplate.executeWithoutResult(status -> {
+
+                        Order order = orderRepository
+                                        .findById(createdOrder.getId())
+                                        .orElseThrow();
+
+                        OrderItem additionalItem = OrderItem.from(product, 3);
+
+                        // Cannot add another item
+                        assertThrows(IllegalStateException.class,
+                                        () -> order.addItem(additionalItem));
+
+                        // Cannot remove existing items
+                        assertThrows(UnsupportedOperationException.class,
+                                        () -> order.getItems().clear());
+
+                        // Cannot modify the collection directly
+                        assertThrows(UnsupportedOperationException.class,
+                                        () -> order.getItems().add(additionalItem));
+
+                        // Cannot recalculate persisted totals
+                        assertThrows(IllegalStateException.class,
+                                        () -> order.recalcTotals());
+
+                        assertEquals(1, order.getItems().size());
+                        assertEquals(new BigDecimal("25.00"), order.getSubtotal());
+                        assertEquals(new BigDecimal("25.00"), order.getTotal());
+                });
+        }
+
+        @Test
+        void checkout_allowsOrderStatusUpdateWithoutChangingSnapshots() {
+
+                User customer = createCustomer();
+                Address address = createAddress(customer);
+                Cart cart = createCart(customer);
+
+                Product product = createProduct(
+                                "Notebook", "12.50", 10, true);
+
+                createCartItem(cart, product, 2);
+
+                Order createdOrder = checkoutService.checkout(
+                                customer.getEmail(), address.getId());
+
+                // Update order status in a separate transaction
+                transactionTemplate.executeWithoutResult(status -> {
+
+                        Order order = orderRepository
+                                        .findById(createdOrder.getId())
+                                        .orElseThrow();
+
+                        assertEquals(OrderStatus.PENDING, order.getStatus());
+
+                        order.setStatus(OrderStatus.CONFIRMED);
+
+                        orderRepository.saveAndFlush(order);
+                });
+
+                // Retrieve fresh records from PostgreSQL
+                transactionTemplate.executeWithoutResult(status -> {
+
+                        Order order = orderRepository
+                                        .findById(createdOrder.getId())
+                                        .orElseThrow();
+
+                        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
+
+                        // Verify totals remain unchanged
+                        assertEquals(new BigDecimal("25.00"), order.getSubtotal());
+                        assertEquals(new BigDecimal("25.00"), order.getTotal());
+
+                        // Verify shipping snapshot remains unchanged
+                        assertEquals("Home", order.getShipTitle());
+                        assertEquals("Ulaanbaatar", order.getShipCity());
+                        assertEquals("Bayanzurkh", order.getShipDistrict());
+                        assertEquals("Test Street 123", order.getShipAddressLine());
+                        assertEquals("99112233", order.getShipPhone());
+
+                        // Verify product snapshot remains unchanged
+                        assertEquals(1, order.getItems().size());
+
+                        OrderItem item = order.getItems().get(0);
+
+                        assertEquals("Notebook", item.getProductName());
+                        assertEquals(new BigDecimal("12.50"), item.getUnitPrice());
+                        assertEquals(2, item.getQuantity());
+                        assertEquals(new BigDecimal("25.00"), item.getLineTotal());
+                });
+        }
 
 }

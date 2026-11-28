@@ -827,6 +827,54 @@ Test coverage includes:
 - Web UI visibility and feedback.
 - CSRF protection.
 
+## CAP-30: Checkout Rollback, Tampering, and Race Tests
+
+Automated tests verify checkout and order integrity under
+invalid requests, transaction failures, and concurrent operations.
+
+### Test Coverage
+
+- Client-supplied prices and totals cannot override server pricing.
+- Checkout rejects delivery addresses belonging to another customer.
+- Checkout rejects inactive products.
+- Concurrent checkout prevents overselling available stock.
+- Products are locked in a consistent order during checkout.
+- Failed checkout rolls back inventory changes, order persistence,
+  and cart deletion.
+- Concurrent customer cancellation and admin shipping cannot both succeed.
+- Cancellation restores stock exactly once.
+- Shipping prevents subsequent customer cancellation.
+- Order items, totals, ownership, and delivery snapshots remain unchanged
+  during concurrent status transitions.
+
+### Running Tests
+
+PostgreSQL integration tests:
+
+```bash
+./mvnw test -Dtest=CheckoutServiceIntegrationTest,OrderCancellationIntegrationTest
+```
+
+Checkout web request tampering tests:
+
+```bash
+./mvnw test -Dtest=CheckoutWebTest
+```
+
+Full regression suite:
+
+```bash
+./mvnw test
+```
+
+The PostgreSQL integration tests use the `postgres-test` profile.
+
+HTTP request tampering is tested using MockMvc, while persisted
+pricing and transaction integrity are verified using PostgreSQL
+integration tests.
+
+No API contracts or UI components were changed.
+
 ## API Error Handling
 
 The API uses Spring `ProblemDetail` responses for consistent error handling.

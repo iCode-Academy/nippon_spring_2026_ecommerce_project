@@ -40,6 +40,9 @@ class AddressWebControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("addresses"))
                 .andExpect(content().string(containsString("No addresses yet")))
+                .andExpect(content().string(containsString("aria-label=\"Account navigation\"")))
+                .andExpect(content().string(containsString("aria-current=\"page\"")))
+                .andExpect(content().string(containsString("href=\"/orders\"")))
                 .andExpect(content().string(containsString("action=\"/addresses/create\"")))
                 .andExpect(content().string(containsString("name=\"_csrf\"")));
     }

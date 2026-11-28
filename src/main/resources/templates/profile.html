@@ -3,64 +3,76 @@
 <head th:replace="~{fragments/layout :: head('My Profile')}"></head>
 
 <body>
-<h1>My Profile</h1>
+<header th:replace="~{fragments/layout :: nav}"></header>
 
-<div th:replace="~{fragments/layout :: nav}"></div>
-
-<main id="main" class="container narrow">
+<main id="main" class="container account-shell" th:classappend="${nav.admin} ? 'account-shell-single'">
+    <th:block th:if="${!nav.admin}"><aside th:replace="~{fragments/account :: accountNav}"></aside></th:block>
+    <div class="account-main profile-page">
     <div th:replace="~{fragments/layout :: flash}"></div>
+    <div class="profile-heading">
+        <p class="eyebrow">Your account</p>
+        <h1>My profile</h1>
+        <p class="muted">Update your contact details for orders and deliveries.</p>
+    </div>
 
-    <form th:action@{/@{/profile}} method="post" class="card form-card" novalidate>
-        <div th:if="${param.error}" class="flash flash-error" role="alert">
-            Invalid login or password. Please try again.
-        </div>
-
+    <form th:action="@{/profile}" th:object="${profileForm}" method="post" class="card form-card profile-form" novalidate>
         <h2>Personal Information</h2>
+        <p class="muted profile-form-intro">Keep your details up to date so we can reach you about your orders.</p>
 
-        <div class="field">
-            <label for="firstName">First name</label>
-            <input type="text" id="firstName" th:field="*{firstName}"
-                   autocomplete="given-name" required aria-required="true"
-                   th:classappend="${#fields.hasErrors('firstName')} ? 'input-invalid'"
-                   th:attr="aria-invalid=${#fields.hasErrors('firstName')}"/>
-            <p class="field-error" th:if="${#fields.hasErrors('firstName')}"
-               th:errors="*{firstName}">First name error</p>
+        <div class="profile-fields">
+            <div class="field">
+                <label for="firstName">First name</label>
+                <input type="text" id="firstName" th:field="*{firstName}"
+                       autocomplete="given-name" maxlength="50" required aria-required="true"
+                       th:classappend="${#fields.hasErrors('firstName')} ? 'input-invalid'"
+                       th:attr="aria-invalid=${#fields.hasErrors('firstName')}"/>
+                <p class="field-error" th:if="${#fields.hasErrors('firstName')}"
+                   th:errors="*{firstName}">First name error</p>
+            </div>
+
+            <div class="field">
+                <label for="lastName">Last name</label>
+                <input type="text" id="lastName" th:field="*{lastName}"
+                       autocomplete="family-name" maxlength="50" required aria-required="true"
+                       th:classappend="${#fields.hasErrors('lastName')} ? 'input-invalid'"
+                       th:attr="aria-invalid=${#fields.hasErrors('lastName')}"/>
+                <p class="field-error" th:if="${#fields.hasErrors('lastName')}"
+                   th:errors="*{lastName}">Last name error</p>
+            </div>
+
+            <div class="field">
+                <label for="email">Email</label>
+                <input type="email" id="email" th:field="*{email}"
+                       autocomplete="email" maxlength="100" required aria-required="true"
+                       th:classappend="${#fields.hasErrors('email')} ? 'input-invalid'"
+                       th:attr="aria-invalid=${#fields.hasErrors('email')}"/>
+                <p class="field-error" th:if="${#fields.hasErrors('email')}"
+                   th:errors="*{email}">Email error</p>
+            </div>
+
+            <div class="field">
+                <label for="phone">Phone <span class="optional">(optional)</span></label>
+                <input type="tel" id="phone" th:field="*{phone}" autocomplete="tel" maxlength="20"
+                       th:classappend="${#fields.hasErrors('phone')} ? 'input-invalid'"
+                       th:attr="aria-invalid=${#fields.hasErrors('phone')}"/>
+                <p class="field-error" th:if="${#fields.hasErrors('phone')}"
+                   th:errors="*{phone}">Phone error</p>
+            </div>
         </div>
 
-        <div class="field">
-            <label for="lastName">Last name</label>
-            <input type="text" id="lastName" th:field="*{lastName}"
-                   autocomplete="family-name" required aria-required="true"
-                   th:classappend="${#fields.hasErrors('lastName')} ? 'input-invalid'"
-                   th:attr="aria-invalid=${#fields.hasErrors('lastName')}"/>
-            <p class="field-error" th:if="${#fields.hasErrors('lastName')}"
-               th:errors="*{lastName}">Last name error</p>
+        <div class="profile-form-actions">
+            <button type="submit" class="btn btn-primary">Save changes</button>
         </div>
-
-        <div class="field">
-            <label for="email">Email</label>
-            <input type="email" id="email" th:field="*{email}"
-                   autocomplete="email" required aria-required="true"
-                   th:classappend="${#fields.hasErrors('email')} ? 'input-invalid'"
-                   th:attr="aria-invalid=${#fields.hasErrors('email')}"/>
-            <p class="field-error" th:if="${#fields.hasErrors('email')}"
-               th:errors="*{email}">Email error</p>
-        </div>
-
-        <div class="field">
-            <label for="phone">Phone <span class="optional">(optional)</span></label>
-            <input type="tel" id="phone" th:field="*{phone}" autocomplete="tel"/>
-        </div>
-
-        <button type="submit" class="btn btn-primary btn-block">Update Profile</button>
     </form>
 
-    <hr/>
-
-    <h2>Password Change</h2>
-    <p>Password changes are handled through the security settings.</p>
-
-    <a th:href="@{/orders}" class="btn btn-link">Back to Orders</a>
+    <section th:if="${!nav.admin}" class="card profile-addresses" aria-labelledby="profile-addresses-title">
+        <div>
+            <h2 id="profile-addresses-title">Delivery addresses</h2>
+            <p class="muted">Manage the addresses you use at checkout.</p>
+        </div>
+        <a th:href="@{/addresses}" class="btn btn-secondary">Manage addresses</a>
+    </section>
+    </div>
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>

@@ -6,7 +6,9 @@
 <body>
     <header th:replace="~{fragments/layout :: nav}"></header>
 
-    <main id="main" class="container">
+    <main id="main" class="container account-shell">
+        <aside th:replace="~{fragments/account :: accountNav}"></aside>
+        <div class="account-main">
         <div th:replace="~{fragments/layout :: flash}"></div>
 
         <div th:if="${detail != null}" class="card">
@@ -86,6 +88,7 @@
                 <hr />
                 <p><strong>Order total:</strong> <span th:text="'$' + ${detail.total}">$0.00</span></p>
             </div>
+        </div>
         </div>
     </main>
 

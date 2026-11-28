@@ -15,10 +15,22 @@ import org.springframework.data.repository.query.Param;
 
 import jakarta.persistence.LockModeType;
 import mn.icode.entity.Order;
+import mn.icode.model.OrderStatus;
 
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order>{
 	@EntityGraph(attributePaths = "user")
 	Page<Order> findAll(Specification<Order> spec, Pageable pageable);
+
+	@Query("""
+			select count(o) from Order o join o.items i
+			where o.user.id = :userId
+			  and o.status = :status
+			  and i.productId = :productId
+		""")
+	long countOrdersForCustomerContainingProductWithStatus(
+		@Param("userId") Long userId,
+		@Param("productId") Long productId,
+		@Param("status") OrderStatus status);
 
 	List<Order> findByUserIdOrderByCreatedAtDesc(Long userId);
 

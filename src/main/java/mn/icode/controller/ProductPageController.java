@@ -1,6 +1,7 @@
 package mn.icode.controller;
 
 import java.math.BigDecimal;
+import java.security.Principal;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import mn.icode.dto.ReviewResponse;
 import mn.icode.entity.Category;
 import mn.icode.entity.Product;
 import mn.icode.repository.CategoryRepository;
@@ -120,12 +122,20 @@ public class ProductPageController {
 	}
 
 	@GetMapping("/products/{id}")
-	public String showProduct(@PathVariable Long id, Model model) {
+	public String showProduct(@PathVariable Long id, Principal principal, Model model) {
 		Product product = productService.findActiveProductById(id);
 
 		model.addAttribute("product", product);
 		model.addAttribute("images", productImageService.findByProductId(id));
 		model.addAttribute("reviewSummary", reviewService.getPublishedSummary(id));
+		model.addAttribute("reviews", reviewService.listPublishedReviews(id));
+
+		ReviewResponse currentUserReview = principal == null
+				? null
+				: reviewService.findCurrentUserReview(id, principal.getName());
+		model.addAttribute("currentUserReview", currentUserReview);
+		model.addAttribute("reviewEligible", principal != null
+				&& reviewService.isEligibleToReview(id, principal.getName()));
 
 		return "products/detail";
 	}

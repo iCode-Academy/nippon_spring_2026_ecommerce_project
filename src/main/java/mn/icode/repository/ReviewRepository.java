@@ -1,5 +1,9 @@
 package mn.icode.repository;
 
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,4 +20,13 @@ public interface ReviewRepository extends JpaRepository<Review, Long>{
     Double averageRatingByProductIdAndModerationStatus(
             @Param("productId") Long productId,
             @Param("moderationStatus") ReviewStatus moderationStatus);
+
+    @EntityGraph(attributePaths = "customer")
+    List<Review> findByProductIdAndModerationStatusOrderByCreatedAtDescIdDesc(
+            Long productId, ReviewStatus moderationStatus);
+
+    @EntityGraph(attributePaths = "customer")
+    Optional<Review> findByCustomerIdAndProductId(Long customerId, Long productId);
+
+    boolean existsByCustomerIdAndProductId(Long customerId, Long productId);
 }

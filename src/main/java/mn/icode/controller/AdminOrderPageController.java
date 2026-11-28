@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import mn.icode.model.OrderStatus;
+import mn.icode.model.OrderStatusTransitionPolicy;
 import mn.icode.service.AdminOrderService;
 
 @Controller
@@ -46,7 +47,10 @@ public class AdminOrderPageController {
 
     @GetMapping("/{id}")
     public String detail(@PathVariable Long id, Model model) {
-        model.addAttribute("order", orders.detail(id));
+        var order = orders.detail(id);
+        model.addAttribute("order", order);
+        model.addAttribute("nextStatuses", OrderStatusTransitionPolicy
+                .allowedNextStatuses(OrderStatus.valueOf(order.status())));
         return "admin/order-detail";
     }
 }

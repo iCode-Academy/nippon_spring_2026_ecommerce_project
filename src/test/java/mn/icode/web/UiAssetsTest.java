@@ -245,4 +245,28 @@ class UiAssetsTest {
                 .contains("Add product")
                 .contains("id=\"products-flash\"");
     }
+
+    @Test
+    void adminOrderDetailPageProvidesCsrfProtectedStatusControls() throws Exception {
+        String page = resource("/templates/admin/order-detail.html");
+        String js = resource("/static/js/admin-order-status.js");
+        String css = resource("/static/css/app.css");
+
+        assertThat(page)
+                .contains("id=\"orderStatusPanel\"")
+                .contains("id=\"statusFeedback\"")
+                .contains("data-status=${next}")
+                .contains("js/admin-order-status.js");
+        assertThat(js)
+                .contains("meta[name=\"_csrf\"]")
+                .contains("meta[name=\"_csrf_header\"]")
+                .contains("[csrfHeader]: csrfToken")
+                .contains("method: 'PATCH'")
+                .contains("STALE_UPDATE")
+                .contains("payload.title")
+                .contains("payload.detail");
+        assertThat(css)
+                .contains(".admin-order-status")
+                .contains(".admin-status-actions");
+    }
 }

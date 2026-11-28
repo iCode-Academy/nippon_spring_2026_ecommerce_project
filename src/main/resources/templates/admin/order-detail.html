@@ -8,6 +8,35 @@
     <main id="main" class="admin-main">
         <p><a th:href="@{/admin/orders}">&larr; Back to orders</a></p>
         <h1 th:text="'Order #' + ${order.id}">Order #1</h1>
+        <div id="orderStatusPanel" class="card admin-order-status"
+             th:attr="data-order-id=${order.id},data-current-status=${order.status}">
+            <h2>Order status</h2>
+            <p>
+                Current status:
+                <span id="currentStatus" class="badge"
+                      th:classappend="${order.status == 'CANCELLED'} ? 'badge-warn' : 'badge-ok'"
+                      th:text="${order.status}">PENDING</span>
+            </p>
+            <div id="statusFeedback" class="flash-region" role="status"
+                 aria-live="polite" aria-atomic="true"></div>
+            <div th:if="${!#lists.isEmpty(nextStatuses)}" class="admin-status-actions">
+                <p>Move this order to:</p>
+                <div class="form-actions">
+                    <button th:each="next : ${nextStatuses}" type="button"
+                            class="btn"
+                            th:classappend="${next.name() == 'CANCELLED'} ? 'btn-danger' : 'btn-primary'"
+                            th:attr="data-status=${next}"
+                            th:text="${next}">CONFIRMED</button>
+                </div>
+            </div>
+            <p th:if="${#lists.isEmpty(nextStatuses)}" class="muted">
+                This order is in a terminal state; no further status changes are allowed.
+            </p>
+            <p class="muted">
+                Updates are checked against the status shown above. If another admin
+                changes this order first, the update is rejected and you can reload.
+            </p>
+        </div>
         <div class="card admin-order-details">
             <h2>Order information</h2>
             <dl>
@@ -45,5 +74,6 @@
     </main>
 </div>
 <footer th:replace="~{fragments/layout :: footer}"></footer>
+<script th:src="@{/js/admin-order-status.js(v=1)}"></script>
 </body>
 </html>

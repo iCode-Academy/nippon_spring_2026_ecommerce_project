@@ -33,4 +33,10 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
 	Optional<Order> findByIdAndUserIdForUpdate(
 		@Param("orderId") Long orderId,
 		@Param("userId") Long userId);
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("""
+			select o from Order o where o.id = :orderId
+		""")
+	Optional<Order> findByIdForUpdate(@Param("orderId") Long orderId);
 }

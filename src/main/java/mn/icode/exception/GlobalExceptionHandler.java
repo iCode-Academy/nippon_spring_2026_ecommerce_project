@@ -72,6 +72,34 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(InvalidOrderTransitionException.class)
+    @ResponseBody
+    public ProblemDetail handleInvalidOrderTransition(InvalidOrderTransitionException exception) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+
+        problem.setTitle("Invalid order transition");
+        problem.setDetail(exception.getMessage());
+        problem.setProperty("code", "INVALID_TRANSITION");
+        problem.setProperty("fromStatus", exception.getFromStatus().name());
+        problem.setProperty("toStatus", exception.getToStatus().name());
+
+        return problem;
+    }
+
+    @ExceptionHandler(StaleOrderUpdateException.class)
+    @ResponseBody
+    public ProblemDetail handleStaleOrderUpdate(StaleOrderUpdateException exception) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+
+        problem.setTitle("Stale order update");
+        problem.setDetail(exception.getMessage());
+        problem.setProperty("code", "STALE_UPDATE");
+        problem.setProperty("expectedStatus", exception.getExpectedStatus().name());
+        problem.setProperty("currentStatus", exception.getCurrentStatus().name());
+
+        return problem;
+    }
+
     @ExceptionHandler(Exception.class)
     public Object handleUnexpected(Exception exception, HttpServletRequest request) {
         if (prefersHtml(request)) {

@@ -17,6 +17,7 @@ import mn.icode.service.UserProfileService;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -48,7 +49,8 @@ class AddressWebControllerTest {
         when(addresses.listAddresses()).thenReturn(List.of());
         mvc.perform(post("/addresses/create").with(user("nora@example.com").roles("CUSTOMER"))
                         .with(csrf()).param("title", "Home").param("city", "Ulaanbaatar")
-                        .param("district", "Sukhbaatar").param("addressLine", "Peace Ave 1"))
+                        .param("district", "Sukhbaatar").param("addressLine", "Peace Ave 1")
+                        .param("phone", "99112233"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/addresses"));
         verify(addresses).createAddress(any());
@@ -57,6 +59,36 @@ class AddressWebControllerTest {
                         .with(csrf()).param("title", "Home"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("City is required")));
+    }
+
+    @Test
+    void missingDistrictAndPhoneCannotBeSavedOnCreateOrEdit() throws Exception {
+        mvc.perform(post("/addresses/create").with(user("nora@example.com").roles("CUSTOMER"))
+                        .with(csrf()).param("title", "Home").param("city", "Ulaanbaatar")
+                        .param("district", " ").param("addressLine", "Peace Ave 1"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("District is required")))
+                .andExpect(content().string(containsString("Phone is required")));
+        verify(addresses, never()).createAddress(any());
+
+        mvc.perform(post("/addresses/edit/7").with(user("nora@example.com").roles("CUSTOMER"))
+                        .with(csrf()).param("title", "Home").param("city", "Ulaanbaatar")
+                        .param("district", "Sukhbaatar").param("addressLine", "Peace Ave 1")
+                        .param("phone", "  "))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Phone is required")));
+        verify(addresses, never()).updateAddress(any(), any());
+    }
+
+    @Test
+    void completeAddressCanBeUpdated() throws Exception {
+        mvc.perform(post("/addresses/edit/7").with(user("nora@example.com").roles("CUSTOMER"))
+                        .with(csrf()).param("title", "Home").param("city", "Ulaanbaatar")
+                        .param("district", "Sukhbaatar").param("addressLine", "Peace Ave 1")
+                        .param("phone", "99112233"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/addresses"));
+        verify(addresses).updateAddress(any(), any());
     }
 
     @Test

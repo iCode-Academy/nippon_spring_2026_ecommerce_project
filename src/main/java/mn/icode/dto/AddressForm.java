@@ -13,6 +13,7 @@ public class AddressForm {
     @Size(max = 100, message = "City must not exceed 100 characters")
     private String city;
 
+    @NotBlank(message = "District is required")
     @Size(max = 100, message = "District must not exceed 100 characters")
     private String district;
 
@@ -20,6 +21,7 @@ public class AddressForm {
     @Size(max = 200, message = "Address line must not exceed 200 characters")
     private String addressLine;
 
+    @NotBlank(message = "Phone is required")
     @Size(max = 20, message = "Phone must not exceed 20 characters")
     private String phone;
 

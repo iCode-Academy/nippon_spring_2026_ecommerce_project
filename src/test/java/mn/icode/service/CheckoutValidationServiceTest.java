@@ -103,6 +103,10 @@ class CheckoutValidationServiceTest {
         Address address = new Address();
         address.setId(addressId);
         address.setUser(owner);
+        address.setCity("Ulaanbaatar");
+        address.setDistrict("Sukhbaatar");
+        address.setAddressLine("Peace Ave 1");
+        address.setPhone("99112233");
         return address;
     }
 
@@ -138,6 +142,34 @@ class CheckoutValidationServiceTest {
         assertFalse(result.isSuccess());
         assertEquals(1, result.getErrors().size());
         assertEquals("Selected delivery address does not belong to your account", result.getErrors().get(0));
+    }
+
+    @Test
+    void validateCheckout_incompleteOwnedAddress_returnsFieldErrorsBeforeCheckingProducts() {
+        Cart cart = new Cart(customer);
+        cart.setId(1L);
+        CartItem item = createCartItem(cart, "Inactive Product", false, 10, 1, new BigDecimal("10.00"));
+        Address ownedAddress = createOwnedAddress(customer, 1L);
+        ownedAddress.setCity(" ");
+        ownedAddress.setDistrict(null);
+        ownedAddress.setAddressLine("\t");
+        ownedAddress.setPhone(null);
+
+        when(userRepository.findByEmail("nora@example.com")).thenReturn(Optional.of(customer));
+        when(cartRepository.findByUserId(1L)).thenReturn(Optional.of(cart));
+        when(cartItemRepository.findByCartOrderByIdAsc(cart)).thenReturn(List.of(item));
+        when(addressRepository.findById(1L)).thenReturn(Optional.of(ownedAddress));
+
+        CheckoutResponse result = validationService.validateCheckout(1L);
+
+        assertFalse(result.isSuccess());
+        assertEquals(List.of(
+                "Delivery address must include a city",
+                "Delivery address must include a district",
+                "Delivery address must include an address line",
+                "Delivery address must include a phone number"), result.getErrors());
+        verify(cartRepository, never()).save(any());
+        verify(cartItemRepository, never()).save(any());
     }
 
     @Test

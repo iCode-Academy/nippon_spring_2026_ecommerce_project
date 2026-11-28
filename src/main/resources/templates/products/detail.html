@@ -114,11 +114,135 @@
 
     </div>
 
+    <section class="card reviews-section" aria-labelledby="reviews-heading">
+        <div class="reviews-section-header">
+            <div>
+                <h2 id="reviews-heading">Customer reviews</h2>
+                <p class="muted" th:if="${reviewSummary.publishedReviewCount() > 0}"
+                   th:text="|${reviewSummary.publishedReviewCount()} approved review(s)|">
+                    Approved reviews
+                </p>
+                <p class="muted" th:unless="${reviewSummary.publishedReviewCount() > 0}">
+                    No published reviews yet.
+                </p>
+            </div>
+            <p class="review-rating" th:if="${reviewSummary.averageRating() != null}">
+                <span th:text="${#numbers.formatDecimal(reviewSummary.averageRating(), 1, 1)}">4.5</span>
+                <span class="review-rating-label">out of 5</span>
+            </p>
+        </div>
+
+        <div id="review-feedback" class="review-feedback" aria-live="polite" aria-atomic="true"></div>
+
+        <div class="review-compose card" th:if="${currentUserReview != null}">
+            <div class="review-compose-header">
+                <h3>Your review</h3>
+                <span class="badge"
+                      th:classappend="${currentUserReview.moderationStatus() == 'APPROVED' ? 'badge-ok' : (currentUserReview.moderationStatus() == 'REJECTED' ? 'badge-error' : 'badge-warn')}"
+                      th:text="${currentUserReview.moderationStatus()}">PENDING</span>
+            </div>
+
+            <p class="muted" th:if="${currentUserReview.moderationStatus() == 'PENDING'}">
+                Your review is awaiting moderation. Only approved reviews are shown publicly.
+            </p>
+            <p class="muted" th:if="${currentUserReview.moderationStatus() == 'REJECTED'}">
+                This review was not approved. You can edit it and submit it for moderation again.
+            </p>
+
+            <form class="review-form js-review-form"
+                  th:attr="data-action=@{/api/reviews/{id}(id=${currentUserReview.id()})},data-method='PUT'">
+                <input type="hidden" th:if="${_csrf != null}"
+                       th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <div class="field">
+                    <label for="review-rating">Rating</label>
+                    <select id="review-rating" name="rating" required>
+                        <option value="5" th:selected="${currentUserReview.rating() == 5}">5 — Excellent</option>
+                        <option value="4" th:selected="${currentUserReview.rating() == 4}">4 — Very good</option>
+                        <option value="3" th:selected="${currentUserReview.rating() == 3}">3 — Good</option>
+                        <option value="2" th:selected="${currentUserReview.rating() == 2}">2 — Fair</option>
+                        <option value="1" th:selected="${currentUserReview.rating() == 1}">1 — Poor</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="review-comment">Review</label>
+                    <textarea id="review-comment" name="comment" maxlength="1000" required
+                              th:text="${currentUserReview.comment()}">Your review</textarea>
+                    <p class="muted review-hint">Maximum 1000 characters.</p>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                    <button type="button" class="btn btn-danger js-delete-review"
+                            th:attr="data-review-id=${currentUserReview.id()}">Delete review</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="review-compose card" th:if="${currentUserReview == null and reviewEligible}">
+            <h3>Write a review</h3>
+            <p class="muted">Your review will be published after moderation.</p>
+
+            <form class="review-form js-review-form"
+                  th:attr="data-action=@{/api/products/{id}/reviews(id=${product.id})},data-method='POST'">
+                <input type="hidden" th:if="${_csrf != null}"
+                       th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <div class="field">
+                    <label for="review-rating">Rating</label>
+                    <select id="review-rating" name="rating" required>
+                        <option value="5">5 — Excellent</option>
+                        <option value="4">4 — Very good</option>
+                        <option value="3">3 — Good</option>
+                        <option value="2">2 — Fair</option>
+                        <option value="1">1 — Poor</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="review-comment">Review</label>
+                    <textarea id="review-comment" name="comment" maxlength="1000" required
+                              placeholder="Share what you liked or disliked about this product"></textarea>
+                    <p class="muted review-hint">Maximum 1000 characters.</p>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Submit review</button>
+                </div>
+            </form>
+        </div>
+
+        <p class="muted review-eligibility-note"
+           th:if="${nav.authenticated and !nav.admin and currentUserReview == null and !reviewEligible}">
+            Only customers with a delivered order containing this product can write a review.
+        </p>
+
+        <p class="muted review-signin" th:if="${!nav.authenticated}">
+            <a th:href="@{/login}">Sign in</a> to write a review.
+        </p>
+
+        <div class="review-list" th:if="${!#lists.isEmpty(reviews)}">
+            <h3>Published reviews</h3>
+            <ul class="review-list-items">
+                <li class="review-card" th:each="review : ${reviews}">
+                    <div class="review-card-header">
+                        <strong th:text="${review.authorName()}">Customer</strong>
+                        <span class="review-stars"
+                              th:attr="aria-label=|${review.rating()} out of 5 stars|"
+                              th:text="${review.ratingStars()}">★★★★★</span>
+                    </div>
+                    <p class="muted review-date" th:text="${review.createdAtDisplay()}">Date</p>
+                    <p class="review-comment" th:text="${review.comment()}">Review comment</p>
+                </li>
+            </ul>
+        </div>
+
+        <div class="empty-state" th:if="${#lists.isEmpty(reviews)}">
+            <p>No reviews have been published for this product yet.</p>
+        </div>
+    </section>
+
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 
 <script th:src="@{/js/add-to-cart.js}" defer></script>
+<script th:src="@{/js/reviews.js}" defer></script>
 
 </body>
 </html>

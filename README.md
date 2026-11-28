@@ -196,6 +196,37 @@ Only active products can be opened. A missing or inactive product returns `404 N
 
 The two-column layout stacks on screens at or below `40rem`. Desktop and mobile screenshots for this page are stored in `docs/ui-evidence/product-detail-desktop.png` and `docs/ui-evidence/product-detail-mobile.png`.
 
+## Customer Product Reviews (CAP-31)
+
+Customers can create, update, and delete their own review for a product on the product detail page (`/products/{id}`) or through the JSON API below. Visitors and customers can read published reviews.
+
+### Endpoints
+
+| Method | Endpoint | Description | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/products/{productId}/reviews` | List published reviews, the aggregate summary, and the current customer's own review | `200` | `404` unknown/inactive product |
+| POST | `/api/products/{productId}/reviews` | Create a review for the product | `201` | `400` validation, `403` missing CSRF/role, `409` duplicate or ineligible |
+| PUT | `/api/reviews/{reviewId}` | Update the authenticated customer's own review | `200` | `400` validation, `403` missing CSRF/role/not owner, `404` not found |
+| DELETE | `/api/reviews/{reviewId}` | Delete the authenticated customer's own review | `204` | `403` missing CSRF/role/not owner, `404` not found |
+
+The GET response is a `ProductReviewsResponse` with `productId`, a `summary` (`publishedReviewCount`, `averageRating`), `reviews` (APPROVED only), `currentUserReview` (the caller's own review at any moderation state, or `null`), and `reviewEligible`.
+
+### Rules
+
+- **Moderation visibility (CAP-07):** only reviews with `moderationStatus = APPROVED` are publicly listed or included in the average/count. Pending and rejected reviews are hidden.
+- Newly created and edited reviews reset to `PENDING` and remain hidden until approved.
+- **Rating & content validation:** rating is required and between 1 and 5; the comment is required (non-blank) and at most 1000 characters. Invalid input returns `400` with field errors.
+- **One review per customer per product:** enforced by the `uq_review_customer_product` database constraint and a service-level check; a second create attempt returns `409 Conflict`.
+- **Approved eligibility (CAP-26):** a customer may only create a review when they have a `DELIVERED` order containing the product; otherwise the request returns `409 Conflict`.
+- **Ownership:** update and delete verify the review belongs to the authenticated customer; foreign edits/deletes return `403 Forbidden`.
+- **Authentication & CSRF:** mutations require the `CUSTOMER` role and a valid CSRF token; anonymous requests are redirected to `/login` and missing/invalid CSRF tokens return `403`.
+
+### UI
+
+The product detail page shows the average rating and published review count, the list of approved reviews (author display name, star rating, date, and comment), and — for signed-in customers — a create form (eligible customers), an edit/delete form (customers who already reviewed), or a clear eligibility note. All mutations use CSRF-protected `fetch()` requests and surface structured error messages. Empty and failure states are handled without breaking the layout, and the page is responsive across desktop and mobile viewports.
+
+Automated coverage lives in `ReviewApiIntegrationTest` (listing, moderation filtering, eligibility, validation, duplicates, ownership, CSRF/authentication, and detail-page rendering) and `CustomerReviewServiceTest` (service-level create/update/delete and ownership rules).
+
 
 ## Customer Cart REST API (CAP-18)
 

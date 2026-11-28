@@ -109,5 +109,26 @@ public class Review {
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
-   
+
+    /**
+     * Updates the customer-editable fields of the review. Edited reviews return
+     * to {@link ReviewStatus#PENDING} so the approved visibility rule from
+     * CAP-07 is re-applied before the new content is published.
+     */
+    public void update(Integer rating, String comment) {
+        if (rating == null || rating < 1 || rating > 5) {
+            throw new IllegalArgumentException("rating must be between 1 and 5");
+        }
+        if (comment == null || comment.isBlank()) {
+            throw new IllegalArgumentException("comment must not be blank");
+        }
+        String trimmed = comment.trim();
+        if (trimmed.length() > 1000) {
+            throw new IllegalArgumentException("comment must not exceed 1000 characters");
+        }
+        this.rating = rating;
+        this.comment = trimmed;
+        this.moderationStatus = ReviewStatus.PENDING;
+    }
+
 }

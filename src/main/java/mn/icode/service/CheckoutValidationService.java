@@ -106,6 +106,24 @@ public class CheckoutValidationService {
             return response;
         }
 
+        if (selectedAddress.getCity() == null || selectedAddress.getCity().isBlank()) {
+            errors.add("Delivery address must include a city");
+        }
+        if (selectedAddress.getDistrict() == null || selectedAddress.getDistrict().isBlank()) {
+            errors.add("Delivery address must include a district");
+        }
+        if (selectedAddress.getAddressLine() == null || selectedAddress.getAddressLine().isBlank()) {
+            errors.add("Delivery address must include an address line");
+        }
+        if (selectedAddress.getPhone() == null || selectedAddress.getPhone().isBlank()) {
+            errors.add("Delivery address must include a phone number");
+        }
+        if (!errors.isEmpty()) {
+            response.setSuccess(false);
+            response.setErrors(errors);
+            return response;
+        }
+
         // 3. Validate every cart item's quantity and product status/stock
         for (CartItem item : cartItems) {
             Product product = item.getProduct();

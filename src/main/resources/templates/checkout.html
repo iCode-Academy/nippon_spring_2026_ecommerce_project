@@ -56,10 +56,10 @@
                 </table>
             </div>
 
-            <p th:unless="${cart.items.isEmpty()}" class="cart-totals">
-                Cart total: <strong th:text="${#numbers.formatDecimal(cart.subtotal, 1, 2)}">0.00</strong>
-                <a th:href="@{/cart}">Edit cart</a>
-            </p>
+            <div th:unless="${cart.items.isEmpty()}" class="checkout-cart-totals">
+                <p>Cart total: <strong th:text="${#numbers.formatDecimal(cart.subtotal, 1, 2)}">0.00</strong></p>
+                <a th:href="@{/cart}" class="btn btn-secondary">Edit cart</a>
+            </div>
 
             <!-- Delivery Address Selection -->
             <div class="card" th:if="${!cart.items.isEmpty()}">

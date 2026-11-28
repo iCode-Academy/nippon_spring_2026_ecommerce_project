@@ -421,6 +421,27 @@ The cart service and endpoint are covered by:
 CAP-18 introduces no UI changes. Cart item deletion
 and its associated UI behavior are documented under CAP-21.
 
+## Customer Delivery Addresses
+
+Authenticated customers manage their own delivery addresses on `/addresses` or through
+`/api/addresses`. Both create and update require the same fields needed at checkout:
+
+| JSON field | Create and update rule |
+|---|---|
+| `title` | Required, nonblank, at most 100 characters |
+| `city` | Required, nonblank, at most 100 characters |
+| `district` | Required, nonblank, at most 100 characters |
+| `addressLine` | Required, nonblank, at most 200 characters |
+| `phone` | Required, nonblank, at most 20 characters |
+| `defaultAddress` | Optional boolean |
+
+`POST /api/addresses` creates an address and `PUT /api/addresses/{id}` updates one;
+both accept JSON and return the saved address with `200 OK`. A missing or blank required
+field returns `400 Bad Request` with a `ProblemDetail` response containing field errors,
+for example `"errors": {"district": "District is required", "phone": "Phone is required"}`.
+The `/addresses` form shows the same errors beside the invalid fields. Addresses saved
+before these requirements were enforced must be completed before they can be used at checkout.
+
 ## Transactional Order Creation and Snapshots (CAP-24)
 
 The checkout service creates an order, order item snapshots,

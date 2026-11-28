@@ -5,13 +5,9 @@ import mn.icode.dto.CheckoutResponse;
 import mn.icode.service.CheckoutValidationService;
 import mn.icode.service.AddressService;
 import mn.icode.service.CartService;
-import mn.icode.dto.CartResponse;
-import mn.icode.entity.User;
-import mn.icode.model.Role;
+import mn.icode.service.CheckoutService;
 import mn.icode.exception.ResourceNotFoundException;
 import mn.icode.exception.ConflictException;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -28,13 +24,16 @@ public class CheckoutController {
     private final CheckoutValidationService validationService;
     private final CartService cartService;
     private final AddressService addressService;
+    private final CheckoutService checkoutService;
 
     public CheckoutController(CheckoutValidationService validationService,
-                              CartService cartService,
-                              AddressService addressService) {
+                               CartService cartService,
+                               AddressService addressService,
+                               CheckoutService checkoutService) {
         this.validationService = validationService;
         this.cartService = cartService;
         this.addressService = addressService;
+        this.checkoutService = checkoutService;
     }
 
     /** Show checkout page with cart and user's addresses. */
@@ -44,18 +43,7 @@ public class CheckoutController {
             return "redirect:/login";
         }
 
-        // Get the current user's email from principal
-        String email = principal.getName();
-
-        // Get cart response
-        CartResponse cartResponse = cartService.getCart(email);
-
-        // Add user's owned addresses for selection
-        List<mn.icode.dto.AddressResponse> addresses = addressService.listAddresses();
-        model.addAttribute("addresses", addresses);
-
-        // Add cart and checkout request to model
-        model.addAttribute("cart", cartResponse);
+        populateForm(model, principal.getName());
         model.addAttribute("checkoutRequest", new CheckoutRequest());
 
         return "checkout";
@@ -75,9 +63,7 @@ public class CheckoutController {
 
         // Check for binding errors first
         if (result.hasErrors()) {
-            CartResponse cartResponse = cartService.getCart(email);
-            model.addAttribute("cart", cartResponse);
-            model.addAttribute("checkoutRequest", request);
+            populateForm(model, email);
             return "checkout";
         }
 
@@ -85,18 +71,24 @@ public class CheckoutController {
         CheckoutResponse validationResult = validationService.validateCheckout(request.getDeliveryAddressId());
 
         if (!validationResult.isSuccess()) {
-            // Validation failed - return to checkout page with error messages
-            CartResponse cartResponse = cartService.getCart(email);
-            model.addAttribute("cart", cartResponse);
-            model.addAttribute("checkoutRequest", request);
+            populateForm(model, email);
             model.addAttribute("validationErrors", validationResult.getErrors());
             return "checkout";
         }
 
-        // Validation passed - proceed with order creation
-        // TODO: Create order persistence (out of scope for CAP-23 validation focus)
-        // For now, just redirect to order confirmation or cart page
+        // Preflight is advisory; checkout rechecks ownership, stock and totals under locks.
+        try {
+            var order = checkoutService.checkout(email, request.getDeliveryAddressId());
+            return "redirect:/orders/" + order.getId();
+        } catch (ConflictException | ResourceNotFoundException | IllegalArgumentException e) {
+            populateForm(model, email);
+            model.addAttribute("validationErrors", List.of(e.getMessage()));
+            return "checkout";
+        }
+    }
 
-        return "redirect:/orders/confirmation";
+    private void populateForm(Model model, String email) {
+        model.addAttribute("cart", cartService.getCart(email));
+        model.addAttribute("addresses", addressService.listAddresses());
     }
 }

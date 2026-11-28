@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Admin orders')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: nav}"></header>
+<div class="admin-shell">
+    <aside th:replace="~{fragments/admin-sidebar :: adminSidebar}"></aside>
+    <main id="main" class="admin-main">
+        <h1>Orders</h1>
+        <form th:action="@{/admin/orders}" method="get" class="card order-filters">
+            <div class="field">
+                <label for="email">Customer email</label>
+                <input id="email" name="email" type="email" th:value="${email}" placeholder="customer@example.com">
+            </div>
+            <div class="field">
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    <option value="">All statuses</option>
+                    <option th:each="option : ${statuses}" th:value="${option}" th:text="${option}"
+                            th:selected="${status == option}">PENDING</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="from">From (UTC)</label>
+                <input id="from" name="from" type="date" th:value="${from}">
+            </div>
+            <div class="field">
+                <label for="to">To (UTC)</label>
+                <input id="to" name="to" type="date" th:value="${to}">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Filter orders</button>
+                <a class="btn btn-ghost" th:href="@{/admin/orders}">Clear</a>
+            </div>
+        </form>
+        <div th:if="${filterError}" class="flash flash-error" role="alert" th:text="${filterError}">Invalid filters</div>
+        <div th:if="${page.empty and filterError == null}" class="empty-state card">
+            <h2>No orders found</h2>
+            <p>Try changing the filters or clearing them.</p>
+        </div>
+        <div th:unless="${page.empty}" class="table-wrap">
+            <table>
+                <caption class="visually-hidden">Orders matching filters</caption>
+                <thead><tr><th scope="col">Order</th><th scope="col">Date</th><th scope="col">Customer email</th><th scope="col">Status</th><th scope="col">Total</th></tr></thead>
+                <tbody>
+                    <tr th:each="order : ${page.content}">
+                        <td><a th:href="@{/admin/orders/{id}(id=${order.id})}" th:text="'#' + ${order.id}">#1</a></td>
+                        <td th:text="${order.createdAt}">2026-01-01</td>
+                        <td th:text="${order.customerEmail}">customer@example.com</td>
+                        <td><span class="badge" th:classappend="${order.status == 'CANCELLED'} ? 'badge-warn' : 'badge-ok'" th:text="${order.status}">PENDING</span></td>
+                        <td th:text="'$' + ${order.total}">$0.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <nav th:if="${page.totalPages > 1}" class="pagination" aria-label="Admin order pages">
+            <a th:if="${page.hasPrevious()}" class="btn btn-ghost"
+               th:href="@{/admin/orders(page=${page.number - 1},size=${page.size},email=${email},status=${status},from=${from},to=${to})}">Previous</a>
+            <span th:text="'Page ' + ${page.number + 1} + ' of ' + ${page.totalPages}">Page 1 of 1</span>
+            <a th:if="${page.hasNext()}" class="btn btn-ghost"
+               th:href="@{/admin/orders(page=${page.number + 1},size=${page.size},email=${email},status=${status},from=${from},to=${to})}">Next</a>
+        </nav>
+    </main>
+</div>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

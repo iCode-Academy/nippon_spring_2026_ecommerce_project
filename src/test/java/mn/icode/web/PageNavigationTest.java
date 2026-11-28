@@ -202,6 +202,8 @@ class PageNavigationTest {
                                                 .string(containsString("Unavailable: inactive or insufficient stock")))
                                 .andExpect(content().string(containsString("25.00")))
                                 .andExpect(content().string(containsString("Remove Notebook from cart")))
+                                .andExpect(content().string(containsString("href=\"/checkout\"")))
+                                .andExpect(content().string(containsString("Proceed to checkout")))
                                 .andExpect(content().string(containsString("data-available=\"false\"")));
         }
 

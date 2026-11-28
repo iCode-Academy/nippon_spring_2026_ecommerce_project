@@ -621,6 +621,51 @@ tbody tr:last-child td {
 }
 
 /* Forms */
+.order-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    align-items: end;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.order-filters .form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.admin-order-details {
+    margin-block: 1rem;
+}
+
+.admin-order-details dl {
+    display: grid;
+    grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr);
+    gap: 0.75rem 1rem;
+    margin-bottom: 0;
+}
+
+.admin-order-details dt {
+    font-weight: 600;
+}
+
+.admin-order-details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 40rem) {
+    .admin-order-details dl {
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+    }
+
+    .admin-order-details dd {
+        margin-bottom: 0.75rem;
+    }
+}
+
 .form-card {
     display: grid;
     gap: 1rem;

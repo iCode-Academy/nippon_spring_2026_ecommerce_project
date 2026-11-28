@@ -71,6 +71,10 @@
             </p>
         </div>
 
+        <p id="cart-checkout" th:hidden="${cart.items.isEmpty()}">
+            <a class="btn btn-primary" th:href="@{/checkout}">Proceed to checkout</a>
+        </p>
+
     </section>
 
 </main>

@@ -30,7 +30,7 @@
                     <a th:href="@{/products}"
                        th:classappend="${#strings.startsWith(nav.currentPath, '/products')} ? 'nav-active'">Products</a>
                 </li>
-                <li th:if="${nav.authenticated}">
+                <li th:if="${nav.authenticated and !nav.admin}">
                     <a th:href="@{/orders}"
                        th:classappend="${#strings.startsWith(nav.currentPath, '/orders')} ? 'nav-active'">My orders</a>
                 </li>

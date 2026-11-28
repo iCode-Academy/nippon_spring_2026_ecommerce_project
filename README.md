@@ -15,12 +15,15 @@ The server-rendered UI uses a shared Thymeleaf layout (`templates/fragments/layo
 | `/products` | GET | Authenticated | `products/list` | Browse active products with search, filters, sorting, and pagination (CAP-15) |
 | `/products/{id}` | GET | Authenticated | `products/detail` | Product detail with ordered image gallery, stock state, category, price, and published-review summary (CAP-16) |
 | `/orders` | GET | Authenticated | `orders` | Current customer's orders table; empty state when none |
+| `/checkout` | GET / POST | `CUSTOMER` only | `checkout` / redirect | Review cart and choose owned address; POST creates order and redirects to `/orders/{id}` |
 | `/admin` | GET | `ADMIN` only | `admin/dashboard` | Stats cards and users table; empty state when no users |
 | `/admin/categories` | GET | `ADMIN` only | `admin/categories` | JavaScript-driven category management page; renders the empty state when no categories exist |
 | `/admin/products` | GET | `ADMIN` only | `admin/products` | JavaScript-driven product management page: create/edit products, manage images, toggle active state, adjust stock |
+| `/admin/orders` | GET | `ADMIN` only | `admin/orders` | Filtered, paginated orders by customer email, status and UTC date range |
+| `/admin/orders/{id}` | GET | `ADMIN` only | `admin/order-detail` | Customer, shipping and item snapshots, totals and current status |
 | `/logout` | POST | Authenticated | — | Form in the navigation; redirects to `/login?logout` |
 
-Navigation differs by audience: anonymous users see *Sign in* / *Register*; authenticated customers additionally see *Shop*, *Products*, *My orders*, their email, and *Sign out*; admins get a single *Admin* link in the header plus a dedicated sidebar (`templates/fragments/admin-sidebar.html`) with *Dashboard*, *Products*, *Categories*, and *Back to shop*. The active link is highlighted in both navigation areas; on screens at or below 60rem the admin sidebar becomes a horizontally scrollable navigation strip. Non-`/api` POSTs require a CSRF token (Thymeleaf adds it automatically to `th:action` forms such as login, register, and sign out); `/api/auth/**` is CSRF-exempt; `/api/admin/**` requires both the `ADMIN` role and a valid `X-CSRF-TOKEN` header.
+Navigation differs by audience: anonymous users see *Sign in* / *Register*; authenticated customers additionally see *Shop*, *Products*, *My orders*, their email, and *Sign out*; admins get a single *Admin* link in the header plus a dedicated sidebar (`templates/fragments/admin-sidebar.html`) with *Dashboard*, *Products*, *Categories*, *Orders*, and *Back to shop*. The active link is highlighted in both navigation areas; on screens at or below 60rem the admin sidebar becomes a horizontally scrollable navigation strip. Non-`/api` POSTs require a CSRF token (Thymeleaf adds it automatically to `th:action` forms such as login, register, and sign out); `/api/auth/**` is CSRF-exempt; `/api/admin/**` requires both the `ADMIN` role and a valid `X-CSRF-TOKEN` header for mutations.
 
 The catalog has two distinct entry points: **Shop** (`/home`) is the quick active-product list, while **Products** (`/products`) is the searchable catalog with filters, sorting, result count, active filter chips, and numbered pagination. Both render cards from `templates/fragments/product-card.html` with an image thumbnail, stock badge, price, and *View details* action. The admin product page has a breadcrumb, an *Add product* shortcut, inline stock editing, busy states, and a success flash.
 
@@ -63,6 +66,17 @@ The page at `/admin/products` is linked from the admin sidebar. It uses `static/
 | `/api/admin/products/{productId}/images/{imageId}` | DELETE | `204` no content | `404` unknown product or image |
 
 The product table has no "Updated At" column because products do not store an update timestamp. The active-state and stock buttons use the same CSRF-protected API and refresh the table after each mutation.
+
+### Admin orders (CAP-28)
+
+| Route | Method | Success | Errors |
+|---|---|---|---|
+| `/api/admin/orders` | GET | `200`, paged `content` with `id`, `createdAt`, `status`, `customerEmail`, `total` and page metadata | `400` invalid range/page/size, `403` CUSTOMER |
+| `/api/admin/orders/{id}` | GET | `200`, customer name/email, shipping address and item snapshots, subtotal, total and current status | `404` unknown order, `403` CUSTOMER |
+
+Optional list parameters: `email` (exact match, trimmed and case-insensitive), `status` (`PENDING`, `CONFIRMED`, `SHIPPED`, `DELIVERED`, `CANCELLED`), `from` and `to` (`yyyy-MM-dd`, inclusive UTC days), `page` (zero-based, default `0`), `size` (default `20`, max `100`). Results are ordered by `createdAt DESC, id DESC`. Empty results return `200` with empty `content`; the UI shows an empty state and keeps the selected filters when moving between pages. The detail uses stored checkout snapshots rather than current product/address values. The HTML pages and API require `ADMIN` (anonymous users are redirected to login); missing HTML details show a 404 page. Invalid date ranges show an inline error in the list UI.
+
+UI evidence (seeded demonstration data): `docs/ui-evidence/admin-orders-desktop.png`, `docs/ui-evidence/admin-orders-mobile.png`, `docs/ui-evidence/admin-order-detail-desktop.png`, `docs/ui-evidence/admin-order-detail-mobile.png`.
 
 Error pages for 403, 404, and 500 live in `templates/error/` and use the same layout. Representative mobile and desktop screenshots are attached to the pull request for UI changes (see CONTRIBUTING.md).
 
@@ -649,6 +663,12 @@ cart deletion fails. Run the integration tests with:
 ```
 
 This service-only change does not add a checkout HTTP endpoint or UI.
+
+### Checkout page wiring (follow-up)
+
+The non-empty cart page links to `GET /checkout`, which shows a read-only cart summary and the customer's delivery addresses, including empty-cart and missing-address states. Cart changes are made on `/cart`. `POST /checkout` requires the `CUSTOMER` role, a CSRF token, and `deliveryAddressId` from an owned address. The page first shows preflight validation errors without saving anything, then calls the transactional `CheckoutService.checkout(email, deliveryAddressId)`, which rechecks the cart, ownership, price and stock under locks. On success the customer is redirected to `/orders/{id}`; validation or service conflicts are displayed on the checkout page with the cart and address options restored. CUSTOMER order details provide the confirmation; there is no `/orders/confirmation` route. ADMIN receives `403`, and anonymous users are redirected to login. Client prices and totals are never accepted from the form.
+
+UI evidence: `docs/ui-evidence/checkout-desktop.png` and `docs/ui-evidence/checkout-mobile.png`.
 
 ## Customer Order Cancellation (CAP-27)
 
